@@ -7,7 +7,7 @@ import { SplatEncoding, SplatFileType } from './defines';
 import { PcSogsJson, PcSogsV2Json, isPcSogs, tryPcSogs, tryPcSogsZip } from './pcsogs';
 
 export type { FileInput, TranscodeSpzInput };
-export { SplatData, getFileExtension, getSplatFileType, getSplatFileTypeFromPath };
+export { SplatData, getFileExtension, getSplatFileType, getSplatFileTypeFromPath, };
 export type { PcSogsJson, PcSogsV2Json };
 export { isPcSogs, tryPcSogs, tryPcSogsZip };
 export declare class SplatLoader extends Loader {
