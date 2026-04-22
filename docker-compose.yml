@@ -1,0 +1,14 @@
+name: spark
+
+services:
+  spark:
+    build: .
+    container_name: spark
+    networks:
+      - default
+      - npm_default
+    restart: unless-stopped
+
+networks:
+  npm_default:
+    external: true

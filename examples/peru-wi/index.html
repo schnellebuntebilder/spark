@@ -19,8 +19,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.180.0/three.module.js",
-        "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/+esm",
+        "three": "../js/vendor/three/build/three.module.js",
+        "lil-gui": "../js/vendor/lil-gui/dist/lil-gui.esm.js",
         "@sparkjsdev/spark": "../../dist/spark.module.js"
       }
     }
@@ -67,7 +67,7 @@
     scene.add(localFrame);
     localFrame.add(camera);
 
-    const splatURL = "../assets/splats/peru-wi/sign_point_cloud_2.compressed.ply";
+    const splatURL = "/examples/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply";
     const world = new SplatMesh({ url: splatURL });
     /* const world = new SplatMesh({
       url: "https://storage.googleapis.com/forge-dev-public/asundqui/cozy-xr/cozy_cottage-lod.spz",

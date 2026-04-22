@@ -1,0 +1,4 @@
+# Exclude git history and build output — but NOT examples/assets
+# (BuildKit would otherwise use .gitignore which excludes examples/assets)
+.git
+site
