@@ -4,7 +4,7 @@ import {
   type TranscodeSpzInput,
   getSplatFileType,
   getSplatFileTypeFromPath,
-} from "./SplatLoader";
+} from "./SplatCore";
 import { GunzipReader, fromHalf, normalize } from "./utils";
 
 import { decodeAntiSplat } from "./antisplat";

@@ -1,6 +1,7 @@
 import { BinaryOp, TrinaryOp, UnaryOp } from './base';
 import { AllIntTypes, BoolTypes, IntTypes, ScalarTypes, SimpleTypes, UintTypes, ValueTypes } from './types';
 import { DynoVal } from './value';
+
 export declare const and: <T extends "bool" | AllIntTypes>(a: DynoVal<T>, b: DynoVal<T>) => DynoVal<T>;
 export declare const or: <T extends "bool" | AllIntTypes>(a: DynoVal<T>, b: DynoVal<T>) => DynoVal<T>;
 export declare const xor: <T extends "bool" | AllIntTypes>(a: DynoVal<T>, b: DynoVal<T>) => DynoVal<T>;

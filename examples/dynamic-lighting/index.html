@@ -73,6 +73,7 @@
     }
   }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import {
@@ -86,6 +87,9 @@
       PointerControls,
     } from "@sparkjsdev/spark";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const canvas = document.getElementById("canvas");
     const scene = new THREE.Scene();
@@ -201,6 +205,7 @@
     let lastTime;
 
     renderer.setAnimationLoop(time => {
+      stats.begin();
       const timeSeconds = time * 0.0005;
       const deltaTime = timeSeconds - (lastTime ?? timeSeconds);
       lastTime = timeSeconds;
@@ -235,6 +240,7 @@
 
       lights[lights.length - 1].visible = night;
       lights[lights.length - 1].color.setHSL(baseHue, 0.5, combinedFlicker);
+      stats.end();
     });
 
     document.getElementById('debug').addEventListener('change', ev => {

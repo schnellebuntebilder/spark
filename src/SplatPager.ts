@@ -4,7 +4,7 @@ import init_wasm, { decode_rad_header } from "spark-rs";
 import { LN_SCALE_MAX, LN_SCALE_MIN, dyno } from ".";
 import { evaluateExtSH } from "./ExtSplats";
 import { evaluatePackedSH } from "./PackedSplats";
-import { getSplatFileType, getSplatFileTypeFromPath } from "./SplatLoader";
+import { getSplatFileType, getSplatFileTypeFromPath } from "./SplatCore";
 import type { SplatSource } from "./SplatMesh";
 import { workerPool } from "./SplatWorker";
 import {

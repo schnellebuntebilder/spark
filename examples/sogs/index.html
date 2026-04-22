@@ -22,12 +22,16 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { Sky } from 'three/addons/objects/Sky.js';
     import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 1000);
@@ -69,8 +73,10 @@
     controls.enablePan = false;
 
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       controls.update(camera);
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

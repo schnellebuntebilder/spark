@@ -21,11 +21,15 @@
       }
     }
   </script>
+	<script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
 	<script type="module">
 		import * as THREE from "three";
 		import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 		import { SparkRenderer, SplatMesh, dyno } from "@sparkjsdev/spark";
 		import { getAssetFileURL } from "/examples/js/get-asset-url.js";
+
+		const stats = new Stats();
+		document.body.appendChild(stats.dom);
 
 		const flyPos = new THREE.Vector3(0, 0, -0.5);
 		const scene = new THREE.Scene();
@@ -109,6 +113,7 @@
 
 		let startTime = 0;
 		const animate = (time) => {
+			stats.begin();
 			if (startTime === 0) startTime = time;
 			const elapsedTime = (time - startTime) / 1000;
 
@@ -116,6 +121,7 @@
 			animateT.value = elapsedTime;
 			renderer.render(scene, camera);
 			fly.needsUpdate = true;
+			stats.end();
 		};
 		renderer.setAnimationLoop(animate);
 	</script>

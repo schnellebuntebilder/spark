@@ -1,6 +1,7 @@
 import { IUniform } from 'three';
 import { DynoType } from './types';
 import { DynoVal, DynoValue, HasDynoOut } from './value';
+
 export declare class Compilation {
     globals: Set<string>;
     statements: string[];

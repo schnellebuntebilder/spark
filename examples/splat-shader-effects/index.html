@@ -20,11 +20,15 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { SparkRenderer, SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
     import { getAssetFileURL } from "../js/get-asset-url.js";
     import GUI from "lil-gui";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -234,12 +238,14 @@
     // Animation loop
     const controls = new SparkControls({ canvas: renderer.domElement });
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       animateT.value = time / 1000;
       cat.updateVersion();
       cat.position.set(0, -.7, -2.5);
       cat.rotation.set(Math.PI, time / 2000, 0);
       controls.update(camera);
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

@@ -36,6 +36,7 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <div class="overlay">
     <h2 id="title"></h2>
     <p id="subtitle"></p>
@@ -45,6 +46,9 @@
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh, SparkControls, isMobile } from "@sparkjsdev/spark";
     import GUI from "lil-gui";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const initialWorld = "Coit Tower, SF";
     const worlds = {
@@ -149,8 +153,10 @@
     const controls = new SparkControls({ canvas: renderer.domElement });
 
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       controls.update(camera);
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

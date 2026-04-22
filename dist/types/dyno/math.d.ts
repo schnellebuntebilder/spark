@@ -2,6 +2,7 @@ import { BinaryOp, Dyno, TrinaryOp, UnaryOp } from './base';
 import { AddOutput, ClampOutput, DivOutput, IModOutput, IsInfOutput, IsNanOutput, MaxOutput, MinOutput, MixOutput, ModOutput, MulOutput, SmoothstepOutput, StepOutput, SubOutput } from './mathTypes';
 import { AllIntTypes, AllSignedTypes, AllValueTypes, BoolTypes, FloatTypes, SignedTypes, ValueTypes } from './types';
 import { DynoVal } from './value';
+
 export declare const add: <A extends AllValueTypes, B extends AllValueTypes>(a: DynoVal<A>, b: DynoVal<B>) => DynoVal<AddOutput<A, B>>;
 export declare const sub: <A extends AllValueTypes, B extends AllValueTypes>(a: DynoVal<A>, b: DynoVal<B>) => DynoVal<SubOutput<A, B>>;
 export declare const mul: <A extends AllValueTypes, B extends AllValueTypes>(a: DynoVal<A>, b: DynoVal<B>) => DynoVal<MulOutput<A, B>>;

@@ -7,6 +7,9 @@ import {
 import * as THREE from "three";
 import { getAssetFileURL } from "/examples/js/get-asset-url.js";
 
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 const canvas = document.getElementById("canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -141,6 +144,7 @@ async function run() {
   });
 
   renderer.setAnimationLoop((timeMs) => {
+    stats.begin();
     // Increment time counter each frame
     timeCounter += 0.016; // ~60fps increment
     timeUniform.value = timeCounter;
@@ -150,6 +154,7 @@ async function run() {
 
     controls.update(camera);
     renderer.render(scene, camera);
+    stats.end();
   });
 }
 

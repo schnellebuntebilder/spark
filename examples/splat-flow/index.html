@@ -20,12 +20,16 @@
         }
       }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
     <script type="module">
       import { dyno, SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
       import * as THREE from "three";
       import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
       import { getAssetFileURL } from "../js/get-asset-url.js";
       import { GUI } from "lil-gui";
+
+      const stats = new Stats();
+      document.body.appendChild(stats.dom);
 
       const splatFiles = ["woobles.spz", "dessert.spz", "robot-head.spz"];
       const skyFile = "dali-env.glb";
@@ -217,6 +221,7 @@
 
       let last = 0;
       renderer.setAnimationLoop(rt => {
+        stats.begin();
         const t = rt * 0.0005;
         const dt = t - last;
         last = t;
@@ -226,6 +231,7 @@
           time.value += dt * PARAMETERS.speedMultiplier;
           if (PARAMETERS.objectRotation) splatMeshes.forEach(m => m.rotation.y += dt * PARAMETERS.speedMultiplier * 2);
         }
+        stats.end();
       });
 
       function updateCamera(meshes) {

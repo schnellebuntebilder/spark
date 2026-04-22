@@ -25,6 +25,7 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import {
@@ -35,6 +36,9 @@
     } from "@sparkjsdev/spark";
     import GUI from "lil-gui";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const SCENE_CONFIG = {
       SNOW_HEIGHT: 8,
@@ -215,6 +219,7 @@
 
     let lastTime;
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       const t = time * 0.001;
       const dt = t - (lastTime ?? t);
       lastTime = t;
@@ -237,6 +242,7 @@
       }
 
       renderer.render(scene, camera);
+      stats.end();
     });
 
   </script>

@@ -33,12 +33,16 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh, PackedSplats } from "@sparkjsdev/spark";
     import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -87,6 +91,7 @@
     const RADIUS = 2;
 
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       controls.update();
 
       // Rotate food
@@ -100,6 +105,7 @@
       cat.position.y = -0.8 + Math.sin(time / 1000) * 0.1;
 
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

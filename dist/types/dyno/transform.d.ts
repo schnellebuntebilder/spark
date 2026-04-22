@@ -1,5 +1,6 @@
 import { Dyno } from './base';
 import { DynoVal } from './value';
+
 export declare const transformPos: (position: DynoVal<"vec3">, { scale, scales, rotate, translate, }: {
     scale?: DynoVal<"float">;
     scales?: DynoVal<"vec3">;

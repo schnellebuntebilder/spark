@@ -1,5 +1,6 @@
 import init_wasm, { sort_splats, sort32_splats } from "spark-worker-rs";
-import type { PcSogsJson, TranscodeSpzInput } from "./SplatLoader";
+import type { PcSogsJson } from "./pcsogs";
+import type { TranscodeSpzInput } from "./SplatCore";
 import { unpackAntiSplat } from "./antisplat";
 import { type SplatEncoding, WASM_SPLAT_SORT } from "./defines";
 import { unpackKsplat } from "./ksplat";

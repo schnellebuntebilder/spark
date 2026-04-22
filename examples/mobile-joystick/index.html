@@ -42,11 +42,15 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh, SparkControls } from "@sparkjsdev/spark";
     import { getAssetFileURL } from "../js/get-asset-url.js";
     import { initMobileControls, getMobileInput, isMobileDevice } from "./mobile-joystick.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -108,6 +112,7 @@
     // Animation loop
     let lastTime = performance.now();
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       const deltaTime = (time - lastTime) / 1000;
       lastTime = time;
 
@@ -126,6 +131,7 @@
       }
 
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

@@ -1,5 +1,6 @@
-import { TranscodeSpzInput } from './SplatLoader';
+import { TranscodeSpzInput } from './SplatCore';
 import { GunzipReader } from './utils';
+
 export declare class SpzReader {
     fileBytes: Uint8Array;
     reader: GunzipReader;

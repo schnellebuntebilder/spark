@@ -2,6 +2,9 @@ import { SparkControls, SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { getAssetFileURL } from "/examples/js/get-asset-url.js";
 
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 const canvas = document.getElementById("canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -305,6 +308,7 @@ async function run() {
   }
 
   renderer.setAnimationLoop((timeMs) => {
+    stats.begin();
     // Decrease cooldown timer
     if (teleportCooldown > 0) {
       teleportCooldown -= 16; // assuming ~60fps
@@ -399,6 +403,7 @@ async function run() {
     } else {
       renderer.render(sceneB, camera);
     }
+    stats.end();
   });
 }
 

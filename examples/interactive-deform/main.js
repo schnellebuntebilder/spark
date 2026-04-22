@@ -3,6 +3,9 @@ import { GUI } from "lil-gui";
 import * as THREE from "three";
 import { getAssetFileURL } from "/examples/js/get-asset-url.js";
 
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   60,
@@ -281,6 +284,7 @@ renderer.domElement.addEventListener("pointerup", (event) => {
 });
 
 renderer.setAnimationLoop(() => {
+  stats.begin();
   // Update bounce animation
   if (isBouncing) {
     bounceTime.value += 0.1;
@@ -315,4 +319,5 @@ renderer.setAnimationLoop(() => {
   }
 
   renderer.render(scene, camera);
+  stats.end();
 });

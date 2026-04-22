@@ -23,12 +23,16 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
@@ -117,6 +121,7 @@
 
     let lastTime;
     renderer.setAnimationLoop(function animate(time) {
+      stats.begin();
       const deltaTime = time - (lastTime || time);
       lastTime = time;
       scene.background.set(0x000000);
@@ -128,6 +133,7 @@
         scene.background.set([0x202040, 0x302020][i]);
         viewpoints[i].update();
       }
+      stats.end();
     });
   </script>
 </body>

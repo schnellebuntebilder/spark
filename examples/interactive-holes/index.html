@@ -41,12 +41,16 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { SplatMesh, SparkRenderer, dyno, SparkControls, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from "@sparkjsdev/spark";
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     import { GUI } from "lil-gui";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     // Scene
     const scene = new THREE.Scene();
@@ -419,6 +423,7 @@
 
     // Animation loop
     renderer.setAnimationLoop((timeMs) => {
+      stats.begin();
       const time = timeMs * 0.001;
       // Update camera controls
       controls.update(camera);
@@ -426,6 +431,7 @@
       // Always update; impulses are persistent and unioned in shader
       splatMesh.updateVersion();
       renderer.render(scene, camera);
+      stats.end();
     });
 
 

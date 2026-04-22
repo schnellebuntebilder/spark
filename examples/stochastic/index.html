@@ -21,10 +21,14 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
     import { OldSparkRenderer, SparkControls, SplatMesh } from "@sparkjsdev/spark";
     import { getAssetFileURL } from "../js/get-asset-url.js";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -61,6 +65,7 @@
     const controls = new SparkControls({ canvas: renderer.domElement });
 
     renderer.setAnimationLoop(function animate(time, xrFrame) {
+      stats.begin();
       controls.update(localFrame);
 
       // This is a hack to make a "local" frame work reliably across
@@ -72,6 +77,7 @@
       lastCameraPos.copy(camera.position);
 
       renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

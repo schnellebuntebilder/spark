@@ -54,6 +54,7 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import {
       dyno,
@@ -69,6 +70,9 @@
     import * as THREE from "three";
     import { getAssetFileURL } from "../js/get-asset-url.js";
     import { GUI } from "lil-gui";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
 
 
     const PARAMETERS = {
@@ -602,10 +606,12 @@
 
     // Animation loop
     renderer.setAnimationLoop(() => {
+      stats.begin();
       if (PARAMETERS.controlsEnabled) {
         controls.update(camera);
       }
-      renderer.render(scene, camera);      
+      renderer.render(scene, camera);
+      stats.end();
     });
   </script>
 </body>

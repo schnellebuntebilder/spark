@@ -1,6 +1,7 @@
 import { BinaryOp, UnaryOp } from './base';
 import { FloatTypes } from './types';
 import { DynoVal } from './value';
+
 export declare const radians: <A extends FloatTypes>(degrees: DynoVal<A>) => DynoVal<A>;
 export declare const degrees: <A extends FloatTypes>(radians: DynoVal<A>) => DynoVal<A>;
 export declare const sin: <A extends FloatTypes>(radians: DynoVal<A>) => DynoVal<A>;

@@ -2,6 +2,9 @@ import { SparkRenderer } from "@sparkjsdev/spark";
 import { GUI } from "lil-gui";
 import * as THREE from "three";
 
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 // Central renderer/scene/camera shared by effects
 const canvas = document.getElementById("canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -114,12 +117,14 @@ gui.add(params, "Effect", Object.keys(effectFiles)).onChange(switchEffect);
 
 // Animation loop
 renderer.setAnimationLoop((timeMs) => {
+  stats.begin();
   const t = timeMs * 0.001;
   const dt = t - (last || t);
   last = t;
 
   if (active?.api?.update) active.api.update(dt, t);
   renderer.render(scene, camera);
+  stats.end();
 });
 
 // Kickoff

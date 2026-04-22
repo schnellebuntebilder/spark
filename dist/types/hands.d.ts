@@ -1,5 +1,6 @@
 import { Object3D, Quaternion, Vector3, WebXRManager } from 'three';
 import { SplatMesh } from './SplatMesh';
+
 export declare enum JointEnum {
     w = "wrist",
     t0 = "thumb-metacarpal",

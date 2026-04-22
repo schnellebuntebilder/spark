@@ -1,6 +1,7 @@
 import { SplatTransformer } from '../SplatGenerator';
 import { SplatMesh } from '../SplatMesh';
 import { DynoVal } from '../dyno';
+
 export declare function makeDepthColorModifier(splatToView: SplatTransformer, minDepth: DynoVal<"float">, maxDepth: DynoVal<"float">, reverse: DynoVal<"bool">): import('../dyno').DynoBlock<{
     gsplat: {
         type: "Gsplat";

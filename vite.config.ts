@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import MagicString from "magic-string";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
@@ -72,6 +73,7 @@ export default defineConfig(({ mode }) => {
     appType: "mpa",
 
     plugins: [
+      basicSsl(),
       glsl({
         include: ["**/*.glsl"],
       }),
@@ -114,6 +116,12 @@ export default defineConfig(({ mode }) => {
       },
     ],
 
+    resolve: {
+      alias: {
+        "@sparkjsdev/spark": path.resolve(__dirname, "src/index.ts"),
+      },
+    },
+
     build: {
       minify: isMinify,
       lib: {
@@ -141,14 +149,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         treeshake: "smallest",
       },
-      plugins: () => [
-        glsl({
-          include: ["**/*.glsl"],
-        }),
-      ],
+      plugins: [glsl({ include: ["**/*.glsl"] })],
     },
 
     server: {
+      https: true,
       watch: {
         usePolling: true,
       },

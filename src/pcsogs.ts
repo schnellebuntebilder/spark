@@ -1,9 +1,4 @@
-import { unzip } from "fflate";
-import {
-  type PcSogsJson,
-  type PcSogsV2Json,
-  tryPcSogsZip,
-} from "./SplatLoader";
+import { unzip, unzipSync } from "fflate";
 import type { SplatEncoding } from "./defines";
 import {
   computeMaxSplats,
@@ -15,6 +10,156 @@ import {
   setPackedSplatRgba,
   setPackedSplatScales,
 } from "./utils";
+
+export type PcSogsJson = {
+  means: {
+    shape: number[];
+    dtype: string;
+    mins: number[];
+    maxs: number[];
+    files: string[];
+  };
+  scales: {
+    shape: number[];
+    dtype: string;
+    mins: number[];
+    maxs: number[];
+    files: string[];
+  };
+  quats: { shape: number[]; dtype: string; encoding?: string; files: string[] };
+  sh0: {
+    shape: number[];
+    dtype: string;
+    mins: number[];
+    maxs: number[];
+    files: string[];
+  };
+  shN?: {
+    shape: number[];
+    dtype: string;
+    mins: number;
+    maxs: number;
+    quantization: number;
+    files: string[];
+  };
+};
+
+export type PcSogsV2Json = {
+  version: 2;
+  count: number;
+  antialias?: boolean;
+  means: {
+    mins: number[];
+    maxs: number[];
+    files: string[];
+  };
+  scales: {
+    codebook: number[];
+    files: string[];
+  };
+  quats: { files: string[] };
+  sh0: {
+    codebook: number[];
+    files: string[];
+  };
+  shN?: {
+    count: number;
+    bands: number;
+    codebook: number[];
+    files: string[];
+  };
+};
+
+export function isPcSogs(input: ArrayBuffer | Uint8Array | string): boolean {
+  return tryPcSogs(input) !== undefined;
+}
+
+export function tryPcSogs(
+  input: ArrayBuffer | Uint8Array | string,
+): PcSogsJson | PcSogsV2Json | undefined {
+  try {
+    let text: string;
+    if (typeof input === "string") {
+      text = input;
+    } else {
+      const fileBytes =
+        input instanceof ArrayBuffer ? new Uint8Array(input) : input;
+      if (fileBytes.length > 65536) {
+        return undefined;
+      }
+      text = new TextDecoder().decode(fileBytes);
+    }
+
+    const json = JSON.parse(text);
+    if (!json || typeof json !== "object" || Array.isArray(json)) {
+      return undefined;
+    }
+    const isVersion2 = json.version === 2;
+
+    for (const key of ["means", "scales", "quats", "sh0"]) {
+      if (
+        !json[key] ||
+        typeof json[key] !== "object" ||
+        Array.isArray(json[key])
+      ) {
+        return undefined;
+      }
+      if (isVersion2) {
+        if (!json[key].files) {
+          return undefined;
+        }
+        if ((key === "scales" || key === "sh0") && !json[key].codebook) {
+          return undefined;
+        }
+        if (key === "means" && (!json[key].mins || !json[key].maxs)) {
+          return undefined;
+        }
+      } else {
+        if (!json[key].shape || !json[key].files) {
+          return undefined;
+        }
+        if (key !== "quats" && (!json[key].mins || !json[key].maxs)) {
+          return undefined;
+        }
+      }
+    }
+    return json as PcSogsJson | PcSogsV2Json;
+  } catch {
+    return undefined;
+  }
+}
+
+export function tryPcSogsZip(
+  input: ArrayBuffer | Uint8Array,
+): { name: string; json: PcSogsJson | PcSogsV2Json } | undefined {
+  try {
+    const fileBytes =
+      input instanceof ArrayBuffer ? new Uint8Array(input) : input;
+    let metaFilename: string | null = null;
+
+    const unzipped = unzipSync(fileBytes, {
+      filter: ({ name }) => {
+        const filename = name.split(/[\\/]/).pop() as string;
+        if (filename === "meta.json") {
+          metaFilename = name;
+          return true;
+        }
+        return false;
+      },
+    });
+    if (!metaFilename) {
+      return undefined;
+    }
+
+    const json = tryPcSogs(unzipped[metaFilename]);
+    if (!json) {
+      return undefined;
+    }
+    return { name: metaFilename, json };
+  } catch {
+    return undefined;
+  }
+}
 
 export async function unpackPcSogs(
   json: PcSogsJson | PcSogsV2Json,
@@ -358,7 +503,7 @@ export async function unpackPcSogsZip(
     fileMap.set(prefix + file, file);
   }
 
-  const unzipped = await new Promise<Record<string, ArrayBuffer>>(
+  const unzipped = await new Promise<Record<string, Uint8Array>>(
     (resolve, reject) => {
       unzip(
         fileBytes,
@@ -380,7 +525,11 @@ export async function unpackPcSogsZip(
 
   const extraFiles: Record<string, ArrayBuffer> = {};
   for (const [full, name] of fileMap.entries()) {
-    extraFiles[name] = unzipped[full];
+    const arr = unzipped[full];
+    extraFiles[name] = arr.buffer.slice(
+      arr.byteOffset,
+      arr.byteOffset + arr.byteLength,
+    ) as ArrayBuffer;
   }
 
   return await unpackPcSogs(json, extraFiles, splatEncoding);
