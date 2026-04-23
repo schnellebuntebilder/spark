@@ -30,15 +30,7 @@
     import { SparkRenderer, SplatMesh, SparkControls, SparkXr } from "@sparkjsdev/spark";
 
     const stats = new Stats();
-    stats.dom.style.position = "fixed";
     document.body.appendChild(stats.dom);
-
-    // Wrap stats in a container used as the WebXR dom-overlay root,
-    // so it remains visible inside the VR headset display.
-    const xrOverlay = document.createElement("div");
-    xrOverlay.style.cssText = "position:fixed;top:0;left:0;pointer-events:none;";
-    xrOverlay.appendChild(stats.dom);
-    document.body.appendChild(xrOverlay);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
@@ -83,10 +75,6 @@
       renderer,
       onMouseLeaveOpacity: 0.5,
       onReady: (supported) => console.log(`SparkXr: VR ${supported ? "supported" : "not supported"}`),
-      sessionInit: {
-        optionalFeatures: ["dom-overlay"],
-        domOverlay: { root: xrOverlay },
-      },
       controllers: {
         getMove: () => new THREE.Vector3(),
         getRotate: () => new THREE.Vector3(),
@@ -94,6 +82,52 @@
         getSlow: () => false,
       },
     });
+
+    // ─── 3D FPS HUD (visible in VR, toggle with B button) ────────────────────
+
+    const hudCanvas = document.createElement("canvas");
+    hudCanvas.width = 256; hudCanvas.height = 128;
+    const hudCtx    = hudCanvas.getContext("2d");
+    const hudTex    = new THREE.CanvasTexture(hudCanvas);
+
+    const hudMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.18, 0.09),
+      new THREE.MeshBasicMaterial({ map: hudTex, transparent: true, depthTest: false }),
+    );
+    hudMesh.renderOrder = 999;
+    hudMesh.position.set(0.14, -0.10, -0.28);
+    hudMesh.visible = false;
+    camera.add(hudMesh); // attached to camera → always in front of player
+
+    let hudFpsCount = 0, hudFpsTime = 0, hudFpsValue = 0;
+
+    function updateHud(delta) {
+      hudFpsCount++;
+      hudFpsTime += delta;
+      if (hudFpsTime < 0.25) return; // update 4× per second
+      hudFpsValue = Math.round(hudFpsCount / hudFpsTime);
+      hudFpsCount = 0; hudFpsTime = 0;
+
+      const w = hudCanvas.width, h = hudCanvas.height;
+      hudCtx.clearRect(0, 0, w, h);
+      hudCtx.fillStyle = "rgba(0,0,0,0.75)";
+      hudCtx.beginPath();
+      hudCtx.roundRect(4, 4, w - 8, h - 8, 16);
+      hudCtx.fill();
+
+      hudCtx.fillStyle = hudFpsValue >= 60 ? "#00ff88" : hudFpsValue >= 30 ? "#ffcc00" : "#ff4444";
+      hudCtx.font = "bold 72px monospace";
+      hudCtx.textAlign = "center";
+      hudCtx.fillText(`${hudFpsValue}`, w / 2, 90);
+
+      hudCtx.fillStyle = "#aaaaaa";
+      hudCtx.font = "24px sans-serif";
+      hudCtx.fillText("FPS", w / 2, h - 6);
+
+      hudTex.needsUpdate = true;
+    }
+
+    let bWasPressed = false;
 
     // ─── Height Map (built lazily once splat data is loaded) ─────────────────
 
@@ -284,13 +318,22 @@
         }
       }
 
-      // Read right-hand index-finger trigger (button[0])
+      // Read right-hand index-finger trigger (button[0]) and B button (button[5])
       let triggerPressed = false;
+      let bPressed       = false;
       for (const source of renderer.xr.getSession()?.inputSources ?? []) {
         if (source.handedness === "right" && source.gamepad) {
           triggerPressed = source.gamepad.buttons[0]?.pressed ?? false;
+          bPressed       = source.gamepad.buttons[5]?.pressed ?? false;
         }
       }
+
+      // B button: toggle FPS HUD (rising edge only)
+      if (bPressed && !bWasPressed) hudMesh.visible = !hudMesh.visible;
+      bWasPressed = bPressed;
+
+      // Update 3D FPS HUD when visible
+      if (hudMesh.visible) updateHud(delta);
 
       if (triggerPressed && rightController) {
         const origin = new THREE.Vector3();
