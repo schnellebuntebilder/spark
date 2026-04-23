@@ -116,8 +116,9 @@
     let rightController = null;
     const ctrl0 = renderer.xr.getController(0);
     const ctrl1 = renderer.xr.getController(1);
-    scene.add(ctrl0);
-    scene.add(ctrl1);
+    // Add controllers to localFrame so their world position stays correct after teleporting
+    localFrame.add(ctrl0);
+    localFrame.add(ctrl1);
 
     for (const ctrl of [ctrl0, ctrl1]) {
       ctrl.addEventListener("connected", (e) => {
