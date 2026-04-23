@@ -34,7 +34,7 @@
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -44,7 +44,14 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    const spark = new SparkRenderer({ renderer, extSplats: false, maxStdDev: Math.sqrt(4) });
+    const spark = new SparkRenderer({
+      renderer,
+      extSplats: false,
+      maxStdDev: Math.sqrt(4),
+      // Only render splats inside (or just past) the view frustum, skip behind
+      clipXY: 1.1,
+      behindFoveate: 0,
+    });
     scene.add(spark);
 
     // Local frame of reference - teleporting moves this
