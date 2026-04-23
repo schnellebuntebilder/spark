@@ -115,19 +115,25 @@
       hudCtx.roundRect(4, 4, w - 8, h - 8, 16);
       hudCtx.fill();
 
+      // FPS (large, colour-coded)
       hudCtx.fillStyle = hudFpsValue >= 60 ? "#00ff88" : hudFpsValue >= 30 ? "#ffcc00" : "#ff4444";
-      hudCtx.font = "bold 72px monospace";
+      hudCtx.font = "bold 62px monospace";
       hudCtx.textAlign = "center";
-      hudCtx.fillText(`${hudFpsValue}`, w / 2, 90);
+      hudCtx.fillText(`${hudFpsValue} FPS`, w / 2, 72);
 
-      hudCtx.fillStyle = "#aaaaaa";
-      hudCtx.font = "24px sans-serif";
-      hudCtx.fillText("FPS", w / 2, h - 6);
+      // FOV (smaller, grey)
+      hudCtx.fillStyle = "#cccccc";
+      hudCtx.font = "26px sans-serif";
+      hudCtx.fillText(`FOV  ${Math.round(camera.fov)}°`, w / 2, 112);
 
       hudTex.needsUpdate = true;
     }
 
     let bWasPressed = false;
+
+    // ─── FOV control (left controller: index trigger = +, X/thumb = -) ────────
+    const FOV_MIN  = 40, FOV_MAX = 120;
+    let   fovCooldown = 0; // seconds until next FOV step is allowed
 
     // ─── Height Map (built lazily once splat data is loaded) ─────────────────
 
@@ -319,13 +325,33 @@
       }
 
       // Read right-hand index-finger trigger (button[0]) and B button (button[5])
+      // Read left-hand index trigger (button[0]) and X/thumb button (button[4]) for FOV
       let triggerPressed = false;
       let bPressed       = false;
+      let fovPlus        = false;
+      let fovMinus       = false;
       for (const source of renderer.xr.getSession()?.inputSources ?? []) {
         if (source.handedness === "right" && source.gamepad) {
           triggerPressed = source.gamepad.buttons[0]?.pressed ?? false;
           bPressed       = source.gamepad.buttons[5]?.pressed ?? false;
         }
+        if (source.handedness === "left" && source.gamepad) {
+          fovPlus  = source.gamepad.buttons[0]?.pressed ?? false; // index trigger
+          fovMinus = source.gamepad.buttons[4]?.pressed ?? false; // X / thumb button
+        }
+      }
+
+      // FOV adjustment — continuous while held, 80 ms between steps
+      fovCooldown = Math.max(0, fovCooldown - delta);
+      if ((fovPlus || fovMinus) && fovCooldown <= 0) {
+        camera.fov = THREE.MathUtils.clamp(
+          camera.fov + (fovPlus ? 1 : -1),
+          FOV_MIN, FOV_MAX,
+        );
+        camera.updateProjectionMatrix();
+        fovCooldown = 0.08;
+        // Force immediate HUD refresh so the new FOV shows right away
+        hudFpsTime = 999;
       }
 
       // B button: toggle FPS HUD (rising edge only)
