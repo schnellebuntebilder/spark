@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark • Teleport</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../js/vendor/three/build/three.module.js",
+        "@sparkjsdev/spark": "../../dist/spark.module.js"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
+  <script type="module">
+    import * as THREE from "three";
+    import { SparkRenderer, SplatMesh, SparkControls, SparkXr } from "@sparkjsdev/spark";
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const spark = new SparkRenderer({ renderer, extSplats: false, maxStdDev: Math.sqrt(4) });
+    scene.add(spark);
+
+    // Local frame of reference - teleporting moves this
+    const localFrame = new THREE.Group();
+    scene.add(localFrame);
+    localFrame.add(camera);
+
+    // Peru-WI splat scene
+    const world = new SplatMesh({
+      url: "/examples/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply",
+    });
+    world.position.set(0, -1, 0);
+    world.quaternion.set(1, 0, 0, 0);
+    scene.add(world);
+
+    // Desktop mouse + WASD navigation
+    const controls = new SparkControls({ renderer, canvas: renderer.domElement });
+
+    // SparkXr without controller movement - we handle the right controller manually
+    const xr = new SparkXr({
+      renderer,
+      onMouseLeaveOpacity: 0.5,
+      onReady: (supported) => console.log(`SparkXr: VR ${supported ? "supported" : "not supported"}`),
+      controllers: {
+        getMove: () => new THREE.Vector3(),
+        getRotate: () => new THREE.Vector3(),
+        getFast: () => false,
+        getSlow: () => false,
+      },
+    });
+
+    // ─── Teleport System ──────────────────────────────────────────────────────
+
+    const FLOOR_Y      = -1.0;  // world-space Y of the floor
+    const LAUNCH_SPEED = 8.0;   // m/s - arc launch speed
+    const GRAVITY      = 9.8;   // m/s²
+    const TIME_STEP    = 0.05;  // seconds per arc segment
+    const ARC_SEGMENTS = 50;
+
+    // --- Arc line ---
+    const arcPositions = new Float32Array(ARC_SEGMENTS * 3);
+    const arcGeometry  = new THREE.BufferGeometry();
+    arcGeometry.setAttribute("position", new THREE.BufferAttribute(arcPositions, 3));
+    arcGeometry.setDrawRange(0, 0);
+
+    const arcLine = new THREE.Line(
+      arcGeometry,
+      new THREE.LineBasicMaterial({ color: 0x44ccff }),
+    );
+    arcLine.visible = false;
+    arcLine.frustumCulled = false;
+    scene.add(arcLine);
+
+    // --- Target marker: outer ring + translucent disc ---
+    const markerGroup = new THREE.Group();
+    markerGroup.visible = false;
+    scene.add(markerGroup);
+
+    markerGroup.add(new THREE.Mesh(
+      new THREE.RingGeometry(0.25, 0.40, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x44ccff, side: THREE.DoubleSide }),
+    ));
+    markerGroup.add(new THREE.Mesh(
+      new THREE.CircleGeometry(0.22, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x44ccff, transparent: true, opacity: 0.30, side: THREE.DoubleSide }),
+    ));
+
+    // --- Right XR controller ---
+    let rightController = null;
+    const ctrl0 = renderer.xr.getController(0);
+    const ctrl1 = renderer.xr.getController(1);
+    scene.add(ctrl0);
+    scene.add(ctrl1);
+
+    for (const ctrl of [ctrl0, ctrl1]) {
+      ctrl.addEventListener("connected", (e) => {
+        if (e.data.handedness === "right") rightController = ctrl;
+      });
+      ctrl.addEventListener("disconnected", () => {
+        if (rightController === ctrl) rightController = null;
+      });
+    }
+
+    let triggerWasPressed = false;
+    let teleportTarget    = null; // THREE.Vector3 | null
+
+    // Simulate a ballistic arc: origin → direction at LAUNCH_SPEED under GRAVITY.
+    // Returns sampled points and the interpolated floor-hit point (or null if arc never reaches FLOOR_Y).
+    function computeBallisticArc(origin, direction) {
+      const points = [];
+      const vel    = direction.clone().multiplyScalar(LAUNCH_SPEED);
+      const pos    = origin.clone();
+      let hitPoint = null;
+
+      for (let i = 0; i < ARC_SEGMENTS; i++) {
+        points.push(pos.clone());
+
+        // Crossed the floor between previous and current step
+        if (i > 0 && pos.y <= FLOOR_Y) {
+          const prev = points[i - 1];
+          const t    = (FLOOR_Y - prev.y) / (pos.y - prev.y);
+          hitPoint   = prev.clone().lerp(pos, t);
+          hitPoint.y = FLOOR_Y;
+          // Extend remaining buffer with the hit point so the line ends there
+          while (points.length < ARC_SEGMENTS) points.push(hitPoint.clone());
+          break;
+        }
+
+        vel.y  -= GRAVITY * TIME_STEP;
+        pos.x  += vel.x * TIME_STEP;
+        pos.y  += vel.y * TIME_STEP;
+        pos.z  += vel.z * TIME_STEP;
+      }
+
+      return { points, hitPoint };
+    }
+
+    function updateArcGeometry(points) {
+      const arr = arcGeometry.attributes.position.array;
+      for (let i = 0; i < points.length; i++) {
+        arr[i * 3]     = points[i].x;
+        arr[i * 3 + 1] = points[i].y;
+        arr[i * 3 + 2] = points[i].z;
+      }
+      arcGeometry.setDrawRange(0, points.length);
+      arcGeometry.attributes.position.needsUpdate = true;
+    }
+
+    function showTeleportUI(hitPoint) {
+      arcLine.visible = true;
+      if (hitPoint) {
+        markerGroup.position.set(hitPoint.x, hitPoint.y + 0.01, hitPoint.z);
+        markerGroup.visible = true;
+      } else {
+        markerGroup.visible = false;
+      }
+    }
+
+    function hideTeleportUI() {
+      arcLine.visible   = false;
+      markerGroup.visible = false;
+    }
+
+    // Move localFrame so the camera lands on top of the target (horizontal only)
+    function performTeleport(target) {
+      const camWorld = camera.getWorldPosition(new THREE.Vector3());
+      localFrame.position.x += target.x - camWorld.x;
+      localFrame.position.z += target.z - camWorld.z;
+    }
+
+    renderer.setAnimationLoop(function animate() {
+      stats.begin();
+
+      // Desktop navigation
+      controls.update(localFrame);
+
+      // Read right-hand index-finger trigger (button[0])
+      let triggerPressed = false;
+      for (const source of renderer.xr.getSession()?.inputSources ?? []) {
+        if (source.handedness === "right" && source.gamepad) {
+          triggerPressed = source.gamepad.buttons[0]?.pressed ?? false;
+        }
+      }
+
+      if (triggerPressed && rightController) {
+        const origin = new THREE.Vector3();
+        const quat   = new THREE.Quaternion();
+        rightController.getWorldPosition(origin);
+        rightController.getWorldQuaternion(quat);
+
+        // In WebXR, the controller's -Z axis is its pointing direction
+        const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
+
+        const { points, hitPoint } = computeBallisticArc(origin, direction);
+        updateArcGeometry(points);
+        showTeleportUI(hitPoint);
+        teleportTarget = hitPoint;
+
+      } else if (!triggerPressed && triggerWasPressed) {
+        // Trigger just released: execute teleport if we have a valid target
+        if (teleportTarget) {
+          performTeleport(teleportTarget);
+        }
+        hideTeleportUI();
+        teleportTarget = null;
+      } else if (!triggerPressed) {
+        hideTeleportUI();
+      }
+
+      triggerWasPressed = triggerPressed;
+
+      renderer.render(scene, camera);
+      stats.end();
+    });
+  </script>
+</body>
+
+</html>
