@@ -34,7 +34,7 @@
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -131,19 +131,9 @@
 
     const clock = new THREE.Clock();
 
-    // --- Arc line ---
-    const arcPositions = new Float32Array(ARC_SEGMENTS * 3);
-    const arcGeometry  = new THREE.BufferGeometry();
-    arcGeometry.setAttribute("position", new THREE.BufferAttribute(arcPositions, 3));
-    arcGeometry.setDrawRange(0, 0);
-
-    const arcLine = new THREE.Line(
-      arcGeometry,
-      new THREE.LineBasicMaterial({ color: 0x44ccff }),
-    );
-    arcLine.visible = false;
-    arcLine.frustumCulled = false;
-    scene.add(arcLine);
+    // --- Arc tube (rebuilt each frame while aiming) ---
+    const arcMaterial = new THREE.MeshBasicMaterial({ color: 0x44ccff, side: THREE.DoubleSide });
+    let arcTube = null;
 
     // --- Target marker: outer ring + translucent disc ---
     const markerGroup = new THREE.Group();
@@ -212,19 +202,18 @@
       return { points, hitPoint };
     }
 
-    function updateArcGeometry(points) {
-      const arr = arcGeometry.attributes.position.array;
-      for (let i = 0; i < points.length; i++) {
-        arr[i * 3]     = points[i].x;
-        arr[i * 3 + 1] = points[i].y;
-        arr[i * 3 + 2] = points[i].z;
-      }
-      arcGeometry.setDrawRange(0, points.length);
-      arcGeometry.attributes.position.needsUpdate = true;
+    // Rebuild the arc tube from the given world-space points.
+    function updateArcTube(points) {
+      if (arcTube) { scene.remove(arcTube); arcTube.geometry.dispose(); arcTube = null; }
+      if (points.length < 2) return;
+      const curve = new THREE.CatmullRomCurve3(points);
+      const geo   = new THREE.TubeGeometry(curve, Math.max(points.length, 20), 0.012, 6, false);
+      arcTube = new THREE.Mesh(geo, arcMaterial);
+      arcTube.frustumCulled = false;
+      scene.add(arcTube);
     }
 
     function showTeleportUI(hitPoint) {
-      arcLine.visible = true;
       if (hitPoint) {
         markerGroup.position.set(hitPoint.x, hitPoint.y + 0.01, hitPoint.z);
         markerGroup.visible = true;
@@ -234,7 +223,7 @@
     }
 
     function hideTeleportUI() {
-      arcLine.visible   = false;
+      if (arcTube) { scene.remove(arcTube); arcTube.geometry.dispose(); arcTube = null; }
       markerGroup.visible = false;
     }
 
@@ -294,7 +283,7 @@
         const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
 
         const { points, hitPoint } = computeBallisticArc(origin, direction);
-        updateArcGeometry(points);
+        updateArcTube(points);
         showTeleportUI(hitPoint);
         teleportTarget = hitPoint;
 
