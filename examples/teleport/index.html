@@ -30,7 +30,15 @@
     import { SparkRenderer, SplatMesh, SparkControls, SparkXr } from "@sparkjsdev/spark";
 
     const stats = new Stats();
+    stats.dom.style.position = "fixed";
     document.body.appendChild(stats.dom);
+
+    // Wrap stats in a container used as the WebXR dom-overlay root,
+    // so it remains visible inside the VR headset display.
+    const xrOverlay = document.createElement("div");
+    xrOverlay.style.cssText = "position:fixed;top:0;left:0;pointer-events:none;";
+    xrOverlay.appendChild(stats.dom);
+    document.body.appendChild(xrOverlay);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
@@ -75,6 +83,10 @@
       renderer,
       onMouseLeaveOpacity: 0.5,
       onReady: (supported) => console.log(`SparkXr: VR ${supported ? "supported" : "not supported"}`),
+      sessionInit: {
+        optionalFeatures: ["dom-overlay"],
+        domOverlay: { root: xrOverlay },
+      },
       controllers: {
         getMove: () => new THREE.Vector3(),
         getRotate: () => new THREE.Vector3(),
