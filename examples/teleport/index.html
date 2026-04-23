@@ -96,6 +96,9 @@
     gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
     gui.add(splatColoring, "value").name("Splat index coloring").onChange(updateAllSplats);
 
+    const debugInfo = { splatCount: 0 };
+    gui.add(debugInfo, "splatCount").name("Rendered splats").listen().disable();
+
     // Desktop mouse + WASD navigation
     const controls = new SparkControls({ renderer, canvas: renderer.domElement });
 
@@ -420,6 +423,7 @@
       triggerWasPressed = triggerPressed;
 
       renderer.render(scene, camera);
+      debugInfo.splatCount = spark.activeSplats;
       stats.end();
     });
   </script>
