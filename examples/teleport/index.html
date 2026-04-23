@@ -20,6 +20,7 @@
     {
       "imports": {
         "three": "../js/vendor/three/build/three.module.js",
+        "lil-gui": "/examples/js/vendor/lil-gui/dist/lil-gui.esm.js",
         "@sparkjsdev/spark": "../../dist/spark.module.js"
       }
     }
@@ -27,7 +28,8 @@
   <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
-    import { SparkRenderer, SplatMesh, SparkControls, SparkXr } from "@sparkjsdev/spark";
+    import { SparkRenderer, SplatMesh, SparkControls, SparkXr, dyno } from "@sparkjsdev/spark";
+    import GUI from "lil-gui";
 
     const stats = new Stats();
     document.body.appendChild(stats.dom);
@@ -51,6 +53,8 @@
       // Only render splats inside (or just past) the view frustum, skip behind
       clipXY: 1.1,
       behindFoveate: 0,
+      // Limit to 10K LoD splats so we can clearly see individual splats
+      lodSplatCount: 10000,
     });
     scene.add(spark);
 
@@ -59,13 +63,38 @@
     scene.add(localFrame);
     localFrame.add(camera);
 
+    const splatColoring = dyno.dynoBool(false);
+
+    function makeSplatIndexColoring() {
+      return dyno.dynoBlock({ gsplat: dyno.Gsplat }, { gsplat: dyno.Gsplat }, ({ gsplat }) => {
+        let { index, rgb } = dyno.splitGsplat(gsplat).outputs;
+        const debugRgb = dyno.debugColorHue(dyno.shr(index, dyno.dynoConst("int", 12)));
+        rgb = dyno.select(splatColoring, dyno.mul(debugRgb, rgb), rgb);
+        return { gsplat: dyno.combineGsplat({ gsplat, rgb }) };
+      });
+    }
+
+    function updateAllSplats() {
+      world.updateVersion();
+    }
+
     // Peru-WI splat scene
     const world = new SplatMesh({
       url: "/examples/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply",
+      lod: true,
+      nonLod: true,
     });
+    world.enableLod = false;
+    world.objectModifiers = [makeSplatIndexColoring()];
+    world.updateGenerator();
     world.position.set(0, -1, 0);
     world.quaternion.set(1, 0, 0, 0);
     scene.add(world);
+
+    const gui = new GUI({ title: "Settings" });
+    gui.add(world, "enableLod").name("Enable LoD").onChange(updateAllSplats);
+    gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
+    gui.add(splatColoring, "value").name("Splat index coloring").onChange(updateAllSplats);
 
     // Desktop mouse + WASD navigation
     const controls = new SparkControls({ renderer, canvas: renderer.domElement });
