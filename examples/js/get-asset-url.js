@@ -3,11 +3,7 @@ export async function getAssetFileURL(assetFile) {
     const response = await fetch("../assets.json");
     const assetsDirectory = "/examples/assets/";
     const assetsInfo = await response.json();
-    let url = assetsInfo[assetFile].url;
-    if (window.sparkLocalAssets) {
-      url = `${assetsDirectory}${assetsInfo[assetFile].directory}/${assetFile}`;
-    }
-    return url;
+    return `${assetsDirectory}${assetsInfo[assetFile].directory}/${assetFile}`;
   } catch (error) {
     console.error("Failed to load asset file URL:", error);
     return null;

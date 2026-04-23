@@ -37,34 +37,36 @@
     const stats = new Stats();
     document.body.appendChild(stats.dom);
 
-    const URL_BASE = ".";
-    // const URL_BASE = "https://storage.googleapis.com/forge-dev-public/asundqui/memory-house-scene/memory-house";
-    // const URL_BASE = "./memory-house";
-    // const URL_BASE = "https://storage.googleapis.com/forge-dev-public/asundqui/hobbitverse";
+    const LOCAL_SPLAT_DIR = "/examples/assets/splats";
 
     const universe = {
       "cozy_cottage": {
-        "url": "./cozy_cottage-lod.spz",
+        "url": `${LOCAL_SPLAT_DIR}/painted-bedroom.spz`,
+        "isCharacter": false,
         "position": [0, -1, 0],
-        "quaternion": [0, 0, 0, 1],
+        "quaternion": [1, 0, 0, 0],
       },
       "toad": {
-        "url": `${URL_BASE}/toad-lod.spz`,
+        "url": `${LOCAL_SPLAT_DIR}/penguin.spz`,
+        "isCharacter": false,
         "position": [0.5,0,-0.5],
         "quaternion": [0.15645282834721824,-0.04146967440804525,0.9867925564627197,0.00657488527784835],
       },
       "turkey": {
-        "url": `${URL_BASE}/turkey-lod.spz`,
+        "url": `${LOCAL_SPLAT_DIR}/robot-head.spz`,
+        "isCharacter": false,
         "position": [0,0,-2],
         "quaternion": [-0.443958268524857,-0.050133086580300315,0.8942976756110581,-0.02488768440417606],
       },
       "butterfly": {
-        "url": `${URL_BASE}/butterfly-ai-lod.spz`,
+        "url": `${LOCAL_SPLAT_DIR}/butterfly-ai.spz`,
+        "isCharacter": false,
         "position": [-1,0,-4.5],
         "quaternion": [-0.28968658389767193,-0.00646881131936965,0.9570976983098036,-0.0019579274470059634],
       },
       "snowbot": {
-        "url": `${URL_BASE}/snowbot-lod.spz`,
+        "url": `${LOCAL_SPLAT_DIR}/snow-street.spz`,
+        "isCharacter": false,
         "position": [-3.5,0,-5],
         "quaternion": [1,0,0,0],
       },
@@ -301,10 +303,9 @@
 
     async function loadUniverse() {
       for (const key of Object.keys(universe)) {
-        const { url, position, quaternion, scale, opacity } = universe[key];
+        const { url, isCharacter = false, position, quaternion, scale, opacity } = universe[key];
         console.log("Loading", key, url, position, quaternion, scale, opacity);
         const absoluteURL = new URL(url, window.location.href).href;
-        const isCharacter = key.startsWith("toad") || key.startsWith("butterfly") || key.startsWith("turkey") || key.startsWith("snowbot");
 
         let packedSplats = undefined;
         let extSplats = undefined;

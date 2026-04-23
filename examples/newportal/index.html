@@ -87,10 +87,10 @@
     pair2.exitPortal.position.set(5, 0, -8);
 
     // ========== Load Splat Assets ==========
-    const URL_BASE = "./splats/";
+    const URL_BASE = "/examples/assets/splats";
 
     async function loadCozyCottage() {
-      let url = `${URL_BASE}/cozy_cottage-lod-0.spz`;
+      let url = `${URL_BASE}/valley.spz`;
 
       console.log("Loading", url);
 
@@ -99,7 +99,7 @@
       // const packedSplats = new PackedSplats({ url: absoluteURL });
       // const mesh = new SplatMesh({ packedSplats });
 
-      const mesh = new SplatMesh({ url: absoluteURL, paged: true });
+      const mesh = new SplatMesh({ url: absoluteURL });
       await mesh.initialized;
 
       mesh.position.fromArray([0, -1, 0]);
