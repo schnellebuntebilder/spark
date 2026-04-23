@@ -76,13 +76,60 @@
       },
     });
 
+    // ─── Height Map (built lazily once splat data is loaded) ─────────────────
+
+    const FLOOR_Y    = -1.0;  // fallback world-space Y when no terrain data available
+    const HM_CELL    = 0.5;   // grid cell size in metres
+    let   heightGrid = null;  // Map<"cx,cz", {sum,count}> — null until built
+
+    function buildHeightGrid() {
+      const grid = new Map();
+      world.forEachSplat((_i, center) => {
+        const wx = center.x + world.position.x;
+        const wy = center.y + world.position.y;
+        const wz = center.z + world.position.z;
+        const cx = Math.floor(wx / HM_CELL);
+        const cz = Math.floor(wz / HM_CELL);
+        const key = `${cx},${cz}`;
+        const cell = grid.get(key);
+        if (cell) { cell.sum += wy; cell.count++; }
+        else grid.set(key, { sum: wy, count: 1 });
+      });
+      if (grid.size === 0) return; // splat data not loaded yet — retry next frame
+      heightGrid = grid;
+      console.log(`Teleport height grid: ${grid.size} cells`);
+    }
+
+    // Average terrain Y in a 5×5 cell window around (x, z)
+    function getTerrainHeight(x, z) {
+      if (!heightGrid) return FLOOR_Y;
+      const cx = Math.floor(x / HM_CELL);
+      const cz = Math.floor(z / HM_CELL);
+      let sum = 0, count = 0;
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          const cell = heightGrid.get(`${cx + dx},${cz + dz}`);
+          if (cell) { sum += cell.sum; count += cell.count; }
+        }
+      }
+      return count > 0 ? sum / count : FLOOR_Y;
+    }
+
     // ─── Teleport System ──────────────────────────────────────────────────────
 
-    const FLOOR_Y      = -1.0;  // world-space Y of the floor
     const LAUNCH_SPEED = 8.0;   // m/s - arc launch speed
     const GRAVITY      = 9.8;   // m/s²
     const TIME_STEP    = 0.05;  // seconds per arc segment
     const ARC_SEGMENTS = 50;
+
+    // ─── Fade System ──────────────────────────────────────────────────────────
+
+    const FADE_DURATION   = 0.25; // seconds for each half (fade-out / fade-in)
+    let   fadeState       = "idle"; // "idle" | "fading-out" | "fading-in"
+    let   fadeProgress    = 0;
+    let   fadePendingTarget = null; // queued teleport target during fade-out
+
+    const clock = new THREE.Clock();
 
     // --- Arc line ---
     const arcPositions = new Float32Array(ARC_SEGMENTS * 3);
@@ -132,8 +179,8 @@
     let triggerWasPressed = false;
     let teleportTarget    = null; // THREE.Vector3 | null
 
-    // Simulate a ballistic arc: origin → direction at LAUNCH_SPEED under GRAVITY.
-    // Returns sampled points and the interpolated floor-hit point (or null if arc never reaches FLOOR_Y).
+    // Simulate a ballistic arc; hit test against terrain height map.
+    // Returns sampled points and the terrain-hit point (or null if arc never hits).
     function computeBallisticArc(origin, direction) {
       const points = [];
       const vel    = direction.clone().multiplyScalar(LAUNCH_SPEED);
@@ -143,15 +190,17 @@
       for (let i = 0; i < ARC_SEGMENTS; i++) {
         points.push(pos.clone());
 
-        // Crossed the floor between previous and current step
-        if (i > 0 && pos.y <= FLOOR_Y) {
-          const prev = points[i - 1];
-          const t    = (FLOOR_Y - prev.y) / (pos.y - prev.y);
-          hitPoint   = prev.clone().lerp(pos, t);
-          hitPoint.y = FLOOR_Y;
-          // Extend remaining buffer with the hit point so the line ends there
-          while (points.length < ARC_SEGMENTS) points.push(hitPoint.clone());
-          break;
+        if (i > 0) {
+          const terrainY = getTerrainHeight(pos.x, pos.z);
+          if (pos.y <= terrainY) {
+            const prev = points[i - 1];
+            // Interpolate to find the exact crossing point
+            const t  = (terrainY - prev.y) / (pos.y - prev.y);
+            hitPoint = prev.clone().lerp(pos, t);
+            hitPoint.y = terrainY;
+            while (points.length < ARC_SEGMENTS) points.push(hitPoint.clone());
+            break;
+          }
         }
 
         vel.y  -= GRAVITY * TIME_STEP;
@@ -199,8 +248,33 @@
     renderer.setAnimationLoop(function animate() {
       stats.begin();
 
+      const delta = clock.getDelta();
+
+      // Lazy height grid build once splat data is loaded
+      if (!heightGrid) buildHeightGrid();
+
       // Desktop navigation
       controls.update(localFrame);
+
+      // ─── Fade update ──────────────────────────────────────────────────────
+      if (fadeState === "fading-out") {
+        fadeProgress = Math.min(1, fadeProgress + delta / FADE_DURATION);
+        world.opacity = 1 - fadeProgress;
+        if (fadeProgress >= 1) {
+          // Fully dark — execute the queued teleport, then fade back in
+          if (fadePendingTarget) performTeleport(fadePendingTarget);
+          fadePendingTarget = null;
+          fadeProgress = 0;
+          fadeState = "fading-in";
+        }
+      } else if (fadeState === "fading-in") {
+        fadeProgress = Math.min(1, fadeProgress + delta / FADE_DURATION);
+        world.opacity = fadeProgress;
+        if (fadeProgress >= 1) {
+          world.opacity = 1;
+          fadeState = "idle";
+        }
+      }
 
       // Read right-hand index-finger trigger (button[0])
       let triggerPressed = false;
@@ -225,9 +299,11 @@
         teleportTarget = hitPoint;
 
       } else if (!triggerPressed && triggerWasPressed) {
-        // Trigger just released: execute teleport if we have a valid target
-        if (teleportTarget) {
-          performTeleport(teleportTarget);
+        // Trigger released — fade to black, then teleport, then fade back in
+        if (teleportTarget && fadeState === "idle") {
+          fadePendingTarget = teleportTarget.clone();
+          fadeState = "fading-out";
+          fadeProgress = 0;
         }
         hideTeleportUI();
         teleportTarget = null;
