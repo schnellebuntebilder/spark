@@ -2,11 +2,12 @@ import * as THREE from "three";
 
 const PINCH_SPEED      = 8.0;   // metres of movement per pixel of pinch delta
 const PINCH_SCALE      = 0.001; // raw pixel delta → speed scale
-const PINCH_DAMPING    = 0.85;  // velocity decay per frame (shared by pinch and double-tap)
+const PINCH_DAMPING    = 0.85;  // pinch velocity decay per frame
 
 const DOUBLE_TAP_MS    = 300;   // max ms between taps to register as double-tap
 const DOUBLE_TAP_PX    = 30;    // max pixel distance between the two taps
-const DOUBLE_TAP_BOOST = 5.0;   // initial speed injected toward tapped direction
+const DOUBLE_TAP_BOOST = 0.4;   // initial per-frame displacement toward tapped direction
+const TAP_DAMPING      = 0.78;  // tap velocity decay per frame (total travel ≈ boost / (1 - damping))
 
 /**
  * Touch controller:
@@ -98,7 +99,7 @@ export function createTouchController({ camera, localFrame }) {
       // Double-tap — move along the tapped ray direction
       if (tapVelocity.lengthSq() > 0.000001) {
         localFrame.position.add(tapVelocity);
-        tapVelocity.multiplyScalar(PINCH_DAMPING);
+        tapVelocity.multiplyScalar(TAP_DAMPING);
       }
     },
   };
