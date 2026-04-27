@@ -86,7 +86,7 @@
     world.quaternion.set(1, 0, 0, 0);
     scene.add(world);
 
-    const { gui, debugInfo } = createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate: updateAllSplats, onSortClipRChange: setSortClipR });
+    const { gui, debugInfo, poseControls } = createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate: updateAllSplats, onSortClipRChange: setSortClipR });
 
     const webCtrl   = createWebController({ renderer, localFrame });
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });
@@ -108,6 +108,9 @@
       // Update localFrame → camera world matrix before computing frustum
       localFrame.updateMatrixWorld(true);
       updateFrustumUniforms(camera, world, world.enableLod);
+
+      // Sync pose GUI ↔ localFrame (reads after controllers so display is current)
+      poseControls.update(localFrame);
 
       updateHud(delta, { fovPlus, fovMinus, bPressed });
 
