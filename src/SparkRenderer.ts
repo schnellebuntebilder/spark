@@ -147,6 +147,15 @@ export interface SparkRendererOptions {
    */
   clipXY?: number;
   /**
+   * CPU-side frustum culling for the sort pass. Splats whose projected NDC
+   * coordinates exceed this value are excluded from the sort (and therefore
+   * not rendered). Use the same coordinate space as `clipXY` — a value of
+   * 1.0 means the exact frustum boundary. Larger values are more permissive.
+   * Set to a large number (e.g. 2.0) to disable CPU-side frustum culling.
+   * @default 2.0
+   */
+  sortClipXY?: number;
+  /**
    * Parameter to adjust projected splat scale calculation to match other renderers,
    * similar to the same parameter in the MKellogg 3DGS renderer. Higher values will
    * tend to sharpen the splats. A value 2.0 can be used to match the behavior of
@@ -340,6 +349,7 @@ export class SparkRenderer extends THREE.Mesh {
   apertureAngle: number;
   falloff: number;
   clipXY: number;
+  sortClipXY: number;
   focalAdjustment: number;
   encodeLinear: boolean;
 
@@ -512,6 +522,7 @@ export class SparkRenderer extends THREE.Mesh {
     this.apertureAngle = options.apertureAngle ?? 0.0;
     this.falloff = options.falloff ?? 1.0;
     this.clipXY = options.clipXY ?? 1.4;
+    this.sortClipXY = options.sortClipXY ?? 2.0;
     this.focalAdjustment = options.focalAdjustment ?? 1.0;
     this.encodeLinear = options.encodeLinear ?? false;
 
@@ -901,6 +912,7 @@ export class SparkRenderer extends THREE.Mesh {
         time,
         camera,
         sortRadial: this.sortRadial ?? true,
+        sortClipXY: this.sortClipXY,
         renderSize: this.renderSize,
         previous: this.current,
         lodInstances: this.enableLod ? this.lodInstances : undefined,

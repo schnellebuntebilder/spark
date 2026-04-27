@@ -29,14 +29,18 @@ export const outputSplatDepth = (
   viewCenter: DynoVal<"vec3">,
   viewDir: DynoVal<"vec3">,
   sortRadial: DynoVal<"bool">,
-) => new OutputSplatDepth({ gsplat, viewCenter, viewDir, sortRadial });
+  viewProjection?: DynoVal<"mat4">,
+  sortClipXY?: DynoVal<"float">,
+) => new OutputSplatDepth({ gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY });
 
 export const outputCovSplatDepth = (
   covsplat: DynoVal<typeof CovSplat>,
   viewCenter: DynoVal<"vec3">,
   viewDir: DynoVal<"vec3">,
   sortRadial: DynoVal<"bool">,
-) => new OutputCovSplatDepth({ covsplat, viewCenter, viewDir, sortRadial });
+  viewProjection?: DynoVal<"mat4">,
+  sortClipXY?: DynoVal<"float">,
+) => new OutputCovSplatDepth({ covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY });
 
 export const outputRgba8 = (rgba8: DynoVal<"vec4">) =>
   new OutputRgba8({ rgba8 });
@@ -173,6 +177,8 @@ class OutputSplatDepth extends Dyno<
     viewCenter: "vec3";
     viewDir: "vec3";
     sortRadial: "bool";
+    viewProjection: "mat4";
+    sortClipXY: "float";
   },
   Record<string, never>
 > {
@@ -181,11 +187,15 @@ class OutputSplatDepth extends Dyno<
     viewCenter,
     viewDir,
     sortRadial,
+    viewProjection,
+    sortClipXY,
   }: {
     gsplat: DynoVal<typeof Gsplat>;
     viewCenter: DynoVal<"vec3">;
     viewDir: DynoVal<"vec3">;
     sortRadial: DynoVal<"bool">;
+    viewProjection?: DynoVal<"mat4">;
+    sortClipXY?: DynoVal<"float">;
   }) {
     super({
       inTypes: {
@@ -193,15 +203,26 @@ class OutputSplatDepth extends Dyno<
         viewCenter: "vec3",
         viewDir: "vec3",
         sortRadial: "bool",
+        viewProjection: "mat4",
+        sortClipXY: "float",
       },
-      inputs: { gsplat, viewCenter, viewDir, sortRadial },
+      inputs: { gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY },
       globals: () => [defineGsplat],
       statements: ({ inputs }) => {
-        const { gsplat, viewCenter, viewDir, sortRadial } = inputs;
+        const { gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY } = inputs;
         if (gsplat && viewCenter && viewDir && sortRadial) {
+          const frustumCheck = viewProjection && sortClipXY
+            ? `
+              vec4 _clipPos = ${viewProjection} * vec4(${gsplat}.center, 1.0);
+              if (_clipPos.w <= 0.0 || abs(_clipPos.x / _clipPos.w) > ${sortClipXY} || abs(_clipPos.y / _clipPos.w) > ${sortClipXY}) {
+                target3 = floatToVec4(1.0 / 0.0);
+                return;
+              }`
+            : "";
           return unindentLines(`
             float metric = 1.0 / 0.0;
             if (isGsplatActive(${gsplat}.flags)) {
+              ${frustumCheck}
               vec3 center = ${gsplat}.center - ${viewCenter};
               if (${sortRadial}) {
                 metric = length(center);
@@ -225,6 +246,8 @@ class OutputCovSplatDepth extends Dyno<
     viewCenter: "vec3";
     viewDir: "vec3";
     sortRadial: "bool";
+    viewProjection: "mat4";
+    sortClipXY: "float";
   },
   Record<string, never>
 > {
@@ -233,11 +256,15 @@ class OutputCovSplatDepth extends Dyno<
     viewCenter,
     viewDir,
     sortRadial,
+    viewProjection,
+    sortClipXY,
   }: {
     covsplat: DynoVal<typeof CovSplat>;
     viewCenter: DynoVal<"vec3">;
     viewDir: DynoVal<"vec3">;
     sortRadial: DynoVal<"bool">;
+    viewProjection?: DynoVal<"mat4">;
+    sortClipXY?: DynoVal<"float">;
   }) {
     super({
       inTypes: {
@@ -245,15 +272,26 @@ class OutputCovSplatDepth extends Dyno<
         viewCenter: "vec3",
         viewDir: "vec3",
         sortRadial: "bool",
+        viewProjection: "mat4",
+        sortClipXY: "float",
       },
-      inputs: { covsplat, viewCenter, viewDir, sortRadial },
+      inputs: { covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY },
       globals: () => [defineCovSplat],
       statements: ({ inputs }) => {
-        const { covsplat, viewCenter, viewDir, sortRadial } = inputs;
+        const { covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY } = inputs;
         if (covsplat && viewCenter && viewDir && sortRadial) {
+          const frustumCheck = viewProjection && sortClipXY
+            ? `
+              vec4 _clipPos = ${viewProjection} * vec4(${covsplat}.center, 1.0);
+              if (_clipPos.w <= 0.0 || abs(_clipPos.x / _clipPos.w) > ${sortClipXY} || abs(_clipPos.y / _clipPos.w) > ${sortClipXY}) {
+                target3 = floatToVec4(1.0 / 0.0);
+                return;
+              }`
+            : "";
           return unindentLines(`
             float metric = 1.0 / 0.0;
             if (isCovSplatActive(${covsplat}.flags)) {
+              ${frustumCheck}
               vec3 center = ${covsplat}.center - ${viewCenter};
               if (${sortRadial}) {
                 metric = length(center);

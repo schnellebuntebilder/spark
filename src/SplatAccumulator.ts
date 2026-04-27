@@ -18,6 +18,8 @@ import {
   type CovSplat,
   Dyno,
   DynoBool,
+  DynoFloat,
+  DynoMat4,
   DynoProgram,
   DynoProgramTemplate,
   DynoUsampler2DArray,
@@ -64,6 +66,8 @@ export class SplatAccumulator {
   static viewCenterUniform = new DynoVec3({ value: new THREE.Vector3() });
   static viewDirUniform = new DynoVec3({ value: new THREE.Vector3() });
   static sortRadialUniform = new DynoBool({ value: true });
+  static viewProjectionUniform = new DynoMat4({ value: new THREE.Matrix4() });
+  static sortClipXYUniform = new DynoFloat({ value: 2.0 });
   maxSplats = 0;
   numSplats = 0;
   target: THREE.WebGLArrayRenderTarget | null = null;
@@ -311,6 +315,8 @@ export class SplatAccumulator {
               SplatAccumulator.viewCenterUniform,
               SplatAccumulator.viewDirUniform,
               SplatAccumulator.sortRadialUniform,
+              SplatAccumulator.viewProjectionUniform,
+              SplatAccumulator.sortClipXYUniform,
             );
             roots.push(outputDepth);
           }
@@ -320,6 +326,8 @@ export class SplatAccumulator {
               SplatAccumulator.viewCenterUniform,
               SplatAccumulator.viewDirUniform,
               SplatAccumulator.sortRadialUniform,
+              SplatAccumulator.viewProjectionUniform,
+              SplatAccumulator.sortClipXYUniform,
             );
             roots.push(outputDepth);
           }
@@ -436,6 +444,7 @@ export class SplatAccumulator {
     time,
     camera,
     sortRadial,
+    sortClipXY,
     renderSize,
     previous,
     lodInstances,
@@ -445,6 +454,7 @@ export class SplatAccumulator {
     time: number;
     camera: THREE.Camera;
     sortRadial: boolean;
+    sortClipXY?: number;
     renderSize: THREE.Vector2;
     previous: SplatAccumulator;
     lodInstances?: Map<
@@ -458,6 +468,12 @@ export class SplatAccumulator {
     SplatAccumulator.viewCenterUniform.value.copy(this.viewOrigin);
     SplatAccumulator.viewDirUniform.value.copy(this.viewDirection);
     SplatAccumulator.sortRadialUniform.value = sortRadial;
+    const vp = new THREE.Matrix4().multiplyMatrices(
+      (camera as THREE.PerspectiveCamera).projectionMatrix,
+      camera.matrixWorldInverse,
+    );
+    SplatAccumulator.viewProjectionUniform.value.copy(vp);
+    SplatAccumulator.sortClipXYUniform.value = sortClipXY ?? 2.0;
 
     this.time = time;
     this.deltaTime = time - previous.time;

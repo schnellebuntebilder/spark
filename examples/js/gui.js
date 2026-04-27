@@ -43,6 +43,9 @@ export function createGui({ spark, world, splatColoring, onSplatUpdate }) {
   const frustum = { clipXY: spark.clipXY };
   gui.add(frustum, "clipXY", 0.5, 3.0, 0.05).name("Frustum size (clipXY)").onChange(v => { spark.clipXY = v; });
 
+  const sortFrustum = { sortClipXY: spark.sortClipXY };
+  gui.add(sortFrustum, "sortClipXY", 0.5, 2.0, 0.05).name("Sort frustum (CPU cull)").onChange(v => { spark.sortClipXY = v; });
+
   gui.add(splatColoring, "value").name("Splat index coloring").onChange(onSplatUpdate);
 
   const debugInfo = { splatCount: 0 };
