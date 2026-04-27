@@ -43,8 +43,8 @@ export function createGui({ spark, world, splatColoring, frustumSettings, onSpla
   gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
 
   if (frustumSettings) {
-    gui.add(frustumSettings, "sortClipR", 0.5, 3.0, 0.05)
-      .name("Cull radius (CPU)")
+    gui.add(frustumSettings, "sortClipR", 0.5, 2.0, 0.05)
+      .name("Cull radius (1=viewport)")
       .onChange(v => onSortClipRChange?.(v));
   }
 

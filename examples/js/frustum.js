@@ -20,7 +20,8 @@ export function createFrustumCulling() {
   const scaleXUniform = new dyno.DynoFloat({ value: 1.0 }); // w / min(w, h)
   const scaleYUniform = new dyno.DynoFloat({ value: 1.0 }); // h / min(w, h)
   const sortClipRUniform = new dyno.DynoFloat({ value: 1.0 });
-  const settings = { sortClipR: 1.0 };
+  // 1.1 = 10 % Puffer über die Viewport-Diagonale hinaus (1.0 = exakt alle Ecken eingeschlossen)
+  const settings = { sortClipR: 1.1 };
 
   function makeFrustumCullModifier() {
     return dyno.dynoBlock(
@@ -60,25 +61,42 @@ export function createFrustumCulling() {
    * Call once per frame before rendering to keep the MVP matrix and aspect ratio current.
    * @param {THREE.Camera} camera
    * @param {THREE.Object3D} mesh - the SplatMesh whose objectModifier this is
+   * @param {boolean} [lodActive=false] - when true, culling is effectively disabled
+   *   (LoD splats are large; center-point culling would incorrectly hide whole regions)
    */
-  function updateFrustumUniforms(camera, mesh) {
+  function updateFrustumUniforms(camera, mesh, lodActive = false) {
     // The objectModifier sees gsplat centers in OBJECT space.
     // We need P * V * M (MVP) so the frustum test is correct.
     viewProjUniform.value
       .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
       .multiply(mesh.matrixWorld);
 
-    // Keep aspect-ratio scale factors in sync with the current viewport
+    // Keep aspect-ratio scale factors in sync with the current viewport.
+    // scaleX = w/min(w,h), scaleY = h/min(w,h) — so the inscribed circle has radius 1.
     const w = window.innerWidth;
     const h = window.innerHeight;
     const minDim = Math.min(w, h);
-    scaleXUniform.value = w / minDim;
-    scaleYUniform.value = h / minDim;
+    const sx = w / minDim;
+    const sy = h / minDim;
+    scaleXUniform.value = sx;
+    scaleYUniform.value = sy;
+
+    if (lodActive) {
+      // LoD splats can be very large; disable culling to avoid whole-region drop-outs.
+      sortClipRUniform.value = 99999.0;
+    } else {
+      // Normalize sortClipR by the viewport diagonal so that:
+      //   sortClipR = 1.0  → circle just covers all four viewport corners
+      //   sortClipR = 1.1  → 10 % margin beyond corners (default, nothing visible is culled)
+      //   sortClipR < 1.0  → aggressive: corners are cut off
+      const diagonal = Math.sqrt(sx * sx + sy * sy);
+      sortClipRUniform.value = settings.sortClipR * diagonal;
+    }
   }
 
   function setSortClipR(v) {
     settings.sortClipR = v;
-    sortClipRUniform.value = v;
+    // sortClipRUniform.value is updated each frame by updateFrustumUniforms
   }
 
   return { settings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipR };

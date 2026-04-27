@@ -107,7 +107,7 @@
 
       // Update localFrame → camera world matrix before computing frustum
       localFrame.updateMatrixWorld(true);
-      updateFrustumUniforms(camera, world);
+      updateFrustumUniforms(camera, world, world.enableLod);
 
       updateHud(delta, { fovPlus, fovMinus, bPressed });
 
