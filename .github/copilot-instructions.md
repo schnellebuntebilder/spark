@@ -19,7 +19,8 @@
 
 Before every commit:
 
-1. **Rebuild Docker image:** `docker build -t spark-examples .`
+1. **Rebuild Docker image (via Compose!):** `docker compose build --no-cache`
+   - ⚠️ Do NOT use `docker build -t spark-examples .` — that builds a separate image that Compose does NOT use
 2. **Force-recreate container:** `docker compose up -d --force-recreate`
 3. **Verify the site** at `https://spark.schnellebunte.cloud/examples/#teleport` — check for console errors
 4. **Then commit**
