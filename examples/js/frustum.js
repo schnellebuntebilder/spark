@@ -7,10 +7,18 @@ import { dyno } from "@sparkjsdev/spark";
  * Splats outside a circular region (inscribed in the shorter viewport edge) are
  * marked inactive (flags = 0) so the sort depth shader returns INFINITY for them.
  *
+ * When LoD is active the modifier is fully bypassed via a dynoBool uniform:
+ *   - LoD splats are hierarchical region representatives whose centres can be
+ *     "behind camera" in clip space even though the region they cover is visible.
+ *   - The `behindCamera` (w ≤ 0) check would incorrectly cull those centres,
+ *     making entire areas disappear (most noticeably at exact axis-aligned rotations).
+ *   - With LoD active the LoD system provides its own view-frustum optimisation,
+ *     so CPU culling is both unnecessary and harmful.
+ *
  * @returns {{
  *   settings: { sortClipR: number },
  *   makeFrustumCullModifier: () => object,
- *   updateFrustumUniforms: (camera: THREE.Camera, mesh: THREE.Object3D) => void,
+ *   updateFrustumUniforms: (camera: THREE.Camera, mesh: THREE.Object3D, lodActive?: boolean) => void,
  *   setSortClipR: (v: number) => void
  * }}
  */
@@ -20,7 +28,12 @@ export function createFrustumCulling() {
   const scaleXUniform = new dyno.DynoFloat({ value: 1.0 }); // w / min(w, h)
   const scaleYUniform = new dyno.DynoFloat({ value: 1.0 }); // h / min(w, h)
   const sortClipRUniform = new dyno.DynoFloat({ value: 1.0 });
-  // 1.1 = 10 % Puffer über die Viewport-Diagonale hinaus (1.0 = exakt alle Ecken eingeschlossen)
+
+  // When false the modifier is a pure pass-through (LoD mode).
+  // Using dynoBool so the GLSL shader can branch without recompilation.
+  const cullingActiveUniform = dyno.dynoBool(true);
+
+  // 1.1 = 10 % margin beyond the viewport diagonal (1.0 = all corners just covered)
   const settings = { sortClipR: 1.1 };
 
   function makeFrustumCullModifier() {
@@ -30,7 +43,7 @@ export function createFrustumCulling() {
       ({ gsplat }) => {
         const { center, flags } = dyno.splitGsplat(gsplat).outputs;
 
-        // Project splat center to clip space via MVP: vec4 = MVP * vec4(center, 1.0)
+        // Project splat centre to clip space via MVP: vec4 = MVP * vec4(centre, 1.0)
         const centerH = dyno.mul(
           viewProjUniform,
           dyno.extendVec(center, dyno.dynoConst("float", 1.0))
@@ -40,7 +53,8 @@ export function createFrustumCulling() {
         const ndcX = dyno.div(dyno.swizzle(centerH, "x"), w);
         const ndcY = dyno.div(dyno.swizzle(centerH, "y"), w);
 
-        // Radial distance scaled so that 1.0 = radius of the inscribed circle
+        // Squared radial distance in aspect-corrected NDC space.
+        // sortClipR = 1.0 → circle just covers all four viewport corners.
         const scaledX = dyno.mul(ndcX, scaleXUniform);
         const scaledY = dyno.mul(ndcY, scaleYUniform);
         const dist2 = dyno.add(dyno.mul(scaledX, scaledX), dyno.mul(scaledY, scaledY));
@@ -50,29 +64,29 @@ export function createFrustumCulling() {
         const outsideRadius = dyno.greaterThan(dist2, clip2);
         const outside = dyno.or(outsideRadius, behindCamera);
 
-        // If outside cull circle, mark splat inactive (flags = 0)
-        const newFlags = dyno.select(outside, dyno.dynoConst("uint", 0), flags);
+        // culledFlags = 0 when outside, unchanged when inside
+        const culledFlags = dyno.select(outside, dyno.dynoConst("uint", 0), flags);
+
+        // When culling is disabled (LoD active) pass flags through unchanged.
+        const newFlags = dyno.select(cullingActiveUniform, culledFlags, flags);
         return { gsplat: dyno.combineGsplat({ gsplat, flags: newFlags }) };
       }
     );
   }
 
   /**
-   * Call once per frame before rendering to keep the MVP matrix and aspect ratio current.
+   * Call once per frame before rendering to keep uniforms current.
    * @param {THREE.Camera} camera
    * @param {THREE.Object3D} mesh - the SplatMesh whose objectModifier this is
-   * @param {boolean} [lodActive=false] - when true, culling is effectively disabled
-   *   (LoD splats are large; center-point culling would incorrectly hide whole regions)
+   * @param {boolean} [lodActive=false] - disables ALL culling when true
    */
   function updateFrustumUniforms(camera, mesh, lodActive = false) {
-    // The objectModifier sees gsplat centers in OBJECT space.
-    // We need P * V * M (MVP) so the frustum test is correct.
+    // The objectModifier sees gsplat centres in OBJECT space → use MVP (P*V*M).
     viewProjUniform.value
       .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
       .multiply(mesh.matrixWorld);
 
     // Keep aspect-ratio scale factors in sync with the current viewport.
-    // scaleX = w/min(w,h), scaleY = h/min(w,h) — so the inscribed circle has radius 1.
     const w = window.innerWidth;
     const h = window.innerHeight;
     const minDim = Math.min(w, h);
@@ -82,13 +96,12 @@ export function createFrustumCulling() {
     scaleYUniform.value = sy;
 
     if (lodActive) {
-      // LoD splats can be very large; disable culling to avoid whole-region drop-outs.
-      sortClipRUniform.value = 99999.0;
+      // Fully disable the modifier: dynoBool = false → shader returns original flags.
+      // This avoids the behindCamera (w ≤ 0) check incorrectly culling LoD proxies.
+      cullingActiveUniform.value = false;
     } else {
-      // Normalize sortClipR by the viewport diagonal so that:
-      //   sortClipR = 1.0  → circle just covers all four viewport corners
-      //   sortClipR = 1.1  → 10 % margin beyond corners (default, nothing visible is culled)
-      //   sortClipR < 1.0  → aggressive: corners are cut off
+      cullingActiveUniform.value = true;
+      // Normalise by viewport diagonal: sortClipR=1.0 covers all corners exactly.
       const diagonal = Math.sqrt(sx * sx + sy * sy);
       sortClipRUniform.value = settings.sortClipR * diagonal;
     }
@@ -96,7 +109,7 @@ export function createFrustumCulling() {
 
   function setSortClipR(v) {
     settings.sortClipR = v;
-    // sortClipRUniform.value is updated each frame by updateFrustumUniforms
+    // sortClipRUniform is updated each frame by updateFrustumUniforms
   }
 
   return { settings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipR };
