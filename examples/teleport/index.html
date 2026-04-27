@@ -28,8 +28,9 @@
   <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
   <script type="module">
     import * as THREE from "three";
-    import { SparkRenderer, SplatMesh, SparkControls, SparkXr, dyno } from "@sparkjsdev/spark";
-    import GUI from "lil-gui";
+    import { SparkRenderer, SplatMesh, SparkControls, SparkXr } from "@sparkjsdev/spark";
+    import { createHud } from "../js/hud.js";
+    import { createSplatColoring, createGui } from "../js/gui.js";
 
     const stats = new Stats();
     document.body.appendChild(stats.dom);
@@ -63,16 +64,7 @@
     scene.add(localFrame);
     localFrame.add(camera);
 
-    const splatColoring = dyno.dynoBool(false);
-
-    function makeSplatIndexColoring() {
-      return dyno.dynoBlock({ gsplat: dyno.Gsplat }, { gsplat: dyno.Gsplat }, ({ gsplat }) => {
-        let { index, rgb } = dyno.splitGsplat(gsplat).outputs;
-        const debugRgb = dyno.debugColorHue(dyno.shr(index, dyno.dynoConst("int", 12)));
-        rgb = dyno.select(splatColoring, dyno.mul(debugRgb, rgb), rgb);
-        return { gsplat: dyno.combineGsplat({ gsplat, rgb }) };
-      });
-    }
+    const { splatColoring, makeSplatIndexColoring } = createSplatColoring();
 
     function updateAllSplats() {
       world.updateVersion();
@@ -91,13 +83,7 @@
     world.quaternion.set(1, 0, 0, 0);
     scene.add(world);
 
-    const gui = new GUI({ title: "Settings" });
-    gui.add(world, "enableLod").name("Enable LoD").onChange(updateAllSplats);
-    gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
-    gui.add(splatColoring, "value").name("Splat index coloring").onChange(updateAllSplats);
-
-    const debugInfo = { splatCount: 0 };
-    gui.add(debugInfo, "splatCount").name("Rendered splats").listen().disable();
+    const { gui, debugInfo } = createGui({ spark, world, splatColoring, onSplatUpdate: updateAllSplats });
 
     // Desktop mouse + WASD navigation
     const controls = new SparkControls({ renderer, canvas: renderer.domElement });
@@ -115,57 +101,7 @@
       },
     });
 
-    // ─── 3D FPS HUD (visible in VR, toggle with B button) ────────────────────
-
-    const hudCanvas = document.createElement("canvas");
-    hudCanvas.width = 256; hudCanvas.height = 128;
-    const hudCtx    = hudCanvas.getContext("2d");
-    const hudTex    = new THREE.CanvasTexture(hudCanvas);
-
-    const hudMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.18, 0.09),
-      new THREE.MeshBasicMaterial({ map: hudTex, transparent: true, depthTest: false }),
-    );
-    hudMesh.renderOrder = 999;
-    hudMesh.position.set(0.14, -0.10, -0.28);
-    hudMesh.visible = false;
-    camera.add(hudMesh); // attached to camera → always in front of player
-
-    let hudFpsCount = 0, hudFpsTime = 0, hudFpsValue = 0;
-
-    function updateHud(delta) {
-      hudFpsCount++;
-      hudFpsTime += delta;
-      if (hudFpsTime < 0.25) return; // update 4× per second
-      hudFpsValue = Math.round(hudFpsCount / hudFpsTime);
-      hudFpsCount = 0; hudFpsTime = 0;
-
-      const w = hudCanvas.width, h = hudCanvas.height;
-      hudCtx.clearRect(0, 0, w, h);
-      hudCtx.fillStyle = "rgba(0,0,0,0.75)";
-      hudCtx.beginPath();
-      hudCtx.roundRect(4, 4, w - 8, h - 8, 16);
-      hudCtx.fill();
-
-      // FPS (large, colour-coded)
-      hudCtx.fillStyle = hudFpsValue >= 60 ? "#00ff88" : hudFpsValue >= 30 ? "#ffcc00" : "#ff4444";
-      hudCtx.font = "bold 62px monospace";
-      hudCtx.textAlign = "center";
-      hudCtx.fillText(`${hudFpsValue} FPS`, w / 2, 72);
-
-      // FOV (smaller, grey)
-      hudCtx.fillStyle = "#cccccc";
-      hudCtx.font = "26px sans-serif";
-      hudCtx.fillText(`FOV  ${Math.round(camera.fov)}°`, w / 2, 112);
-
-      hudTex.needsUpdate = true;
-    }
-
-    let bWasPressed = false;
-
-    // ─── FOV control (left controller: index trigger = +, X/thumb = -) ────────
-    const FOV_MIN  = 40, FOV_MAX = 120;
-    let   fovCooldown = 0; // seconds until next FOV step is allowed
+    const { update: updateHud } = createHud(camera);
 
     // ─── Height Map (built lazily once splat data is loaded) ─────────────────
 
@@ -373,25 +309,8 @@
         }
       }
 
-      // FOV adjustment — continuous while held, 80 ms between steps
-      fovCooldown = Math.max(0, fovCooldown - delta);
-      if ((fovPlus || fovMinus) && fovCooldown <= 0) {
-        camera.fov = THREE.MathUtils.clamp(
-          camera.fov + (fovPlus ? 1 : -1),
-          FOV_MIN, FOV_MAX,
-        );
-        camera.updateProjectionMatrix();
-        fovCooldown = 0.08;
-        // Force immediate HUD refresh so the new FOV shows right away
-        hudFpsTime = 999;
-      }
-
-      // B button: toggle FPS HUD (rising edge only)
-      if (bPressed && !bWasPressed) hudMesh.visible = !hudMesh.visible;
-      bWasPressed = bPressed;
-
-      // Update 3D FPS HUD when visible
-      if (hudMesh.visible) updateHud(delta);
+      // FOV adjustment + B-button HUD toggle handled in hud.js
+      updateHud(delta, { fovPlus, fovMinus, bPressed });
 
       if (triggerPressed && rightController) {
         const origin = new THREE.Vector3();
