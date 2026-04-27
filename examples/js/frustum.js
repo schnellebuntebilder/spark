@@ -10,7 +10,7 @@ import { dyno } from "@sparkjsdev/spark";
  * @returns {{
  *   settings: { sortClipXY: number },
  *   makeFrustumCullModifier: () => object,
- *   updateFrustumUniforms: (camera: THREE.Camera) => void,
+ *   updateFrustumUniforms: (camera: THREE.Camera, mesh: THREE.Object3D) => void,
  *   setSortClipXY: (v: number) => void
  * }}
  */
@@ -56,12 +56,17 @@ export function createFrustumCulling() {
     );
   }
 
-  /** Call once per frame before rendering to keep the VP matrix current. */
-  function updateFrustumUniforms(camera) {
-    viewProjUniform.value.multiplyMatrices(
-      camera.projectionMatrix,
-      camera.matrixWorldInverse
-    );
+  /**
+   * Call once per frame before rendering to keep the MVP matrix current.
+   * @param {THREE.Camera} camera
+   * @param {THREE.Object3D} mesh - the SplatMesh whose objectModifier this is
+   */
+  function updateFrustumUniforms(camera, mesh) {
+    // The objectModifier sees gsplat centers in OBJECT space.
+    // We need P * V * M (MVP) so the frustum test is correct.
+    viewProjUniform.value
+      .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+      .multiply(mesh.matrixWorld);
   }
 
   function setSortClipXY(v) {
