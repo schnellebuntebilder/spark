@@ -48,10 +48,10 @@ const RAD = Math.PI / 180;
 export function createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate, onSortClipRChange }) {
   const gui = new GUI({ title: "Settings" });
   gui.add(world, "enableLod").name("Enable LoD").onChange(onSplatUpdate);
-  gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
+  gui.add(spark, "lodSplatCount", 10000, 500000, 10000).name("LoD splat count");
 
   if (frustumSettings) {
-    gui.add(frustumSettings, "sortClipR", 0.5, 2.0, 0.05)
+    gui.add(frustumSettings, "sortClipR", 0.05, 2.0, 0.05)
       .name("Cull radius (1=viewport)")
       .onChange(v => onSortClipRChange?.(v));
   }

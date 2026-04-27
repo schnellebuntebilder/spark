@@ -31,7 +31,15 @@ export const outputSplatDepth = (
   sortRadial: DynoVal<"bool">,
   viewProjection?: DynoVal<"mat4">,
   sortClipXY?: DynoVal<"float">,
-) => new OutputSplatDepth({ gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY });
+) =>
+  new OutputSplatDepth({
+    gsplat,
+    viewCenter,
+    viewDir,
+    sortRadial,
+    viewProjection,
+    sortClipXY,
+  });
 
 export const outputCovSplatDepth = (
   covsplat: DynoVal<typeof CovSplat>,
@@ -40,7 +48,15 @@ export const outputCovSplatDepth = (
   sortRadial: DynoVal<"bool">,
   viewProjection?: DynoVal<"mat4">,
   sortClipXY?: DynoVal<"float">,
-) => new OutputCovSplatDepth({ covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY });
+) =>
+  new OutputCovSplatDepth({
+    covsplat,
+    viewCenter,
+    viewDir,
+    sortRadial,
+    viewProjection,
+    sortClipXY,
+  });
 
 export const outputRgba8 = (rgba8: DynoVal<"vec4">) =>
   new OutputRgba8({ rgba8 });
@@ -206,19 +222,34 @@ class OutputSplatDepth extends Dyno<
         viewProjection: "mat4",
         sortClipXY: "float",
       },
-      inputs: { gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY },
+      inputs: {
+        gsplat,
+        viewCenter,
+        viewDir,
+        sortRadial,
+        viewProjection,
+        sortClipXY,
+      },
       globals: () => [defineGsplat],
       statements: ({ inputs }) => {
-        const { gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY } = inputs;
+        const {
+          gsplat,
+          viewCenter,
+          viewDir,
+          sortRadial,
+          viewProjection,
+          sortClipXY,
+        } = inputs;
         if (gsplat && viewCenter && viewDir && sortRadial) {
-          const frustumCheck = viewProjection && sortClipXY
-            ? `
+          const frustumCheck =
+            viewProjection && sortClipXY
+              ? `
               vec4 _clipPos = ${viewProjection} * vec4(${gsplat}.center, 1.0);
               if (_clipPos.w <= 0.0 || abs(_clipPos.x / _clipPos.w) > ${sortClipXY} || abs(_clipPos.y / _clipPos.w) > ${sortClipXY}) {
                 target3 = floatToVec4(1.0 / 0.0);
                 return;
               }`
-            : "";
+              : "";
           return unindentLines(`
             float metric = 1.0 / 0.0;
             if (isGsplatActive(${gsplat}.flags)) {
@@ -275,19 +306,34 @@ class OutputCovSplatDepth extends Dyno<
         viewProjection: "mat4",
         sortClipXY: "float",
       },
-      inputs: { covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY },
+      inputs: {
+        covsplat,
+        viewCenter,
+        viewDir,
+        sortRadial,
+        viewProjection,
+        sortClipXY,
+      },
       globals: () => [defineCovSplat],
       statements: ({ inputs }) => {
-        const { covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY } = inputs;
+        const {
+          covsplat,
+          viewCenter,
+          viewDir,
+          sortRadial,
+          viewProjection,
+          sortClipXY,
+        } = inputs;
         if (covsplat && viewCenter && viewDir && sortRadial) {
-          const frustumCheck = viewProjection && sortClipXY
-            ? `
+          const frustumCheck =
+            viewProjection && sortClipXY
+              ? `
               vec4 _clipPos = ${viewProjection} * vec4(${covsplat}.center, 1.0);
               if (_clipPos.w <= 0.0 || abs(_clipPos.x / _clipPos.w) > ${sortClipXY} || abs(_clipPos.y / _clipPos.w) > ${sortClipXY}) {
                 target3 = floatToVec4(1.0 / 0.0);
                 return;
               }`
-            : "";
+              : "";
           return unindentLines(`
             float metric = 1.0 / 0.0;
             if (isCovSplatActive(${covsplat}.flags)) {

@@ -4,8 +4,8 @@ import { withWorker } from "./OldSplatWorker";
 import { PackedSplats, type PackedSplatsOptions } from "./PackedSplats";
 import {
   type FileInput,
-  type TranscodeSpzInput,
   SplatData,
+  type TranscodeSpzInput,
   getFileExtension,
   getSplatFileType,
   getSplatFileTypeFromPath,
