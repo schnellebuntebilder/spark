@@ -79,6 +79,7 @@
       lod: true,
       nonLod: true,
     });
+
     world.enableLod = false;
     world.objectModifiers = [makeSplatIndexColoring(), makeFrustumCullModifier()];
     world.updateGenerator();
@@ -88,7 +89,7 @@
 
     const { gui, debugInfo, poseControls } = createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate: updateAllSplats, onSortClipRChange: setSortClipR });
 
-    const webCtrl   = createWebController({ renderer, localFrame });
+    const webCtrl   = createWebController({ renderer, camera, localFrame, world });
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });
     const touchCtrl = createTouchController({ camera, localFrame });
 
