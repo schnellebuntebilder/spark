@@ -46,7 +46,7 @@ export function createGui({ spark, world, splatColoring, onSplatUpdate }) {
   gui.add(splatColoring, "value").name("Splat index coloring").onChange(onSplatUpdate);
 
   const debugInfo = { splatCount: 0 };
-  gui.add(debugInfo, "splatCount").name("Rendered splats").listen().disable();
+  gui.add(debugInfo, "splatCount").name("Sorted splats (CPU)").listen().disable();
 
   return { gui, debugInfo };
 }
