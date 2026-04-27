@@ -103,11 +103,13 @@
 
       const delta = clock.getDelta();
 
-      updateFrustumUniforms(camera);
-
       webCtrl.update();
       const { bPressed, fovPlus, fovMinus } = questCtrl.update(delta);
       touchCtrl.update(delta);
+
+      // Update localFrame → camera world matrix before computing frustum
+      localFrame.updateMatrixWorld(true);
+      updateFrustumUniforms(camera);
 
       updateHud(delta, { fovPlus, fovMinus, bPressed });
 
