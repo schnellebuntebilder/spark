@@ -107,7 +107,7 @@
 
       // Update localFrame → camera world matrix before computing frustum
       localFrame.updateMatrixWorld(true);
-      updateFrustumUniforms(camera, world, world.enableLod);
+      updateFrustumUniforms(camera, world, !world.enableLod);
 
       // Sync pose GUI ↔ localFrame (reads after controllers so display is current)
       poseControls.update(localFrame);
