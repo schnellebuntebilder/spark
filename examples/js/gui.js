@@ -31,24 +31,21 @@ export function createSplatColoring() {
  *   spark: object,
  *   world: object,
  *   splatColoring: object,
- *   frustumSettings: { sortClipXY: number },
+ *   frustumSettings: { sortClipR: number },
  *   onSplatUpdate: () => void,
- *   onSortClipXYChange: (v: number) => void
+ *   onSortClipRChange: (v: number) => void
  * }} options
  * @returns {{ gui: GUI, debugInfo: { splatCount: number } }}
  */
-export function createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate, onSortClipXYChange }) {
+export function createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate, onSortClipRChange }) {
   const gui = new GUI({ title: "Settings" });
   gui.add(world, "enableLod").name("Enable LoD").onChange(onSplatUpdate);
   gui.add(spark, "lodSplatCount", 10000, 250000, 10000).name("LoD splat count");
 
-  const frustum = { clipXY: spark.clipXY };
-  gui.add(frustum, "clipXY", 0.5, 3.0, 0.05).name("Frustum size (clipXY)").onChange(v => { spark.clipXY = v; });
-
   if (frustumSettings) {
-    gui.add(frustumSettings, "sortClipXY", 0.5, 3.0, 0.05)
-      .name("Sort frustum (CPU cull)")
-      .onChange(v => onSortClipXYChange?.(v));
+    gui.add(frustumSettings, "sortClipR", 0.5, 3.0, 0.05)
+      .name("Cull radius (CPU)")
+      .onChange(v => onSortClipRChange?.(v));
   }
 
   gui.add(splatColoring, "value").name("Splat index coloring").onChange(onSplatUpdate);

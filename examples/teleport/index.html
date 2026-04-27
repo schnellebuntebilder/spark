@@ -55,8 +55,6 @@
       renderer,
       extSplats: false,
       maxStdDev: Math.sqrt(4),
-      // Only render splats inside (or just past) the view frustum, skip behind
-      clipXY: 1.1,
       behindFoveate: 0,
       // Limit to 10K LoD splats so we can clearly see individual splats
       lodSplatCount: 10000,
@@ -69,7 +67,7 @@
     localFrame.add(camera);
 
     const { splatColoring, makeSplatIndexColoring } = createSplatColoring();
-    const { settings: frustumSettings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipXY } = createFrustumCulling();
+    const { settings: frustumSettings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipR } = createFrustumCulling();
 
     function updateAllSplats() {
       world.updateVersion();
@@ -88,7 +86,7 @@
     world.quaternion.set(1, 0, 0, 0);
     scene.add(world);
 
-    const { gui, debugInfo } = createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate: updateAllSplats, onSortClipXYChange: setSortClipXY });
+    const { gui, debugInfo } = createGui({ spark, world, splatColoring, frustumSettings, onSplatUpdate: updateAllSplats, onSortClipRChange: setSortClipR });
 
     const webCtrl   = createWebController({ renderer, localFrame });
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });

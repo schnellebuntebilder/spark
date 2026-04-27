@@ -2,22 +2,25 @@ import * as THREE from "three";
 import { dyno } from "@sparkjsdev/spark";
 
 /**
- * Creates CPU-side frustum culling via a SplatMesh objectModifier.
+ * Creates CPU-side radial frustum culling via a SplatMesh objectModifier.
  *
- * The modifier marks out-of-frustum splats as inactive (flags = 0) so the
- * sort depth shader returns INFINITY for them, excluding them from activeSplats.
+ * Splats outside a circular region (inscribed in the shorter viewport edge) are
+ * marked inactive (flags = 0) so the sort depth shader returns INFINITY for them.
  *
  * @returns {{
- *   settings: { sortClipXY: number },
+ *   settings: { sortClipR: number },
  *   makeFrustumCullModifier: () => object,
  *   updateFrustumUniforms: (camera: THREE.Camera, mesh: THREE.Object3D) => void,
- *   setSortClipXY: (v: number) => void
+ *   setSortClipR: (v: number) => void
  * }}
  */
 export function createFrustumCulling() {
   const viewProjUniform = new dyno.DynoMat4({ value: new THREE.Matrix4() });
-  const sortClipXYUniform = new dyno.DynoFloat({ value: 2.0 });
-  const settings = { sortClipXY: 2.0 };
+  // Scale factors: NDC * scale maps to a coordinate space where 1.0 = half of min(w, h)
+  const scaleXUniform = new dyno.DynoFloat({ value: 1.0 }); // w / min(w, h)
+  const scaleYUniform = new dyno.DynoFloat({ value: 1.0 }); // h / min(w, h)
+  const sortClipRUniform = new dyno.DynoFloat({ value: 1.0 });
+  const settings = { sortClipR: 1.0 };
 
   function makeFrustumCullModifier() {
     return dyno.dynoBlock(
@@ -26,7 +29,7 @@ export function createFrustumCulling() {
       ({ gsplat }) => {
         const { center, flags } = dyno.splitGsplat(gsplat).outputs;
 
-        // Project splat center to clip space: vec4 = viewProj * vec4(center, 1.0)
+        // Project splat center to clip space via MVP: vec4 = MVP * vec4(center, 1.0)
         const centerH = dyno.mul(
           viewProjUniform,
           dyno.extendVec(center, dyno.dynoConst("float", 1.0))
@@ -36,20 +39,17 @@ export function createFrustumCulling() {
         const ndcX = dyno.div(dyno.swizzle(centerH, "x"), w);
         const ndcY = dyno.div(dyno.swizzle(centerH, "y"), w);
 
-        const clip = sortClipXYUniform;
-        const outsideX = dyno.or(
-          dyno.lessThan(ndcX, dyno.neg(clip)),
-          dyno.greaterThan(ndcX, clip)
-        );
-        const outsideY = dyno.or(
-          dyno.lessThan(ndcY, dyno.neg(clip)),
-          dyno.greaterThan(ndcY, clip)
-        );
+        // Radial distance scaled so that 1.0 = radius of the inscribed circle
+        const scaledX = dyno.mul(ndcX, scaleXUniform);
+        const scaledY = dyno.mul(ndcY, scaleYUniform);
+        const dist2 = dyno.add(dyno.mul(scaledX, scaledX), dyno.mul(scaledY, scaledY));
+        const clip2 = dyno.mul(sortClipRUniform, sortClipRUniform);
+
         const behindCamera = dyno.lessThanEqual(w, dyno.dynoConst("float", 0.0));
+        const outsideRadius = dyno.greaterThan(dist2, clip2);
+        const outside = dyno.or(outsideRadius, behindCamera);
 
-        const outside = dyno.or(dyno.or(outsideX, outsideY), behindCamera);
-
-        // If outside frustum, mark splat inactive (flags = 0)
+        // If outside cull circle, mark splat inactive (flags = 0)
         const newFlags = dyno.select(outside, dyno.dynoConst("uint", 0), flags);
         return { gsplat: dyno.combineGsplat({ gsplat, flags: newFlags }) };
       }
@@ -57,7 +57,7 @@ export function createFrustumCulling() {
   }
 
   /**
-   * Call once per frame before rendering to keep the MVP matrix current.
+   * Call once per frame before rendering to keep the MVP matrix and aspect ratio current.
    * @param {THREE.Camera} camera
    * @param {THREE.Object3D} mesh - the SplatMesh whose objectModifier this is
    */
@@ -67,12 +67,19 @@ export function createFrustumCulling() {
     viewProjUniform.value
       .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
       .multiply(mesh.matrixWorld);
+
+    // Keep aspect-ratio scale factors in sync with the current viewport
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const minDim = Math.min(w, h);
+    scaleXUniform.value = w / minDim;
+    scaleYUniform.value = h / minDim;
   }
 
-  function setSortClipXY(v) {
-    settings.sortClipXY = v;
-    sortClipXYUniform.value = v;
+  function setSortClipR(v) {
+    settings.sortClipR = v;
+    sortClipRUniform.value = v;
   }
 
-  return { settings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipXY };
+  return { settings, makeFrustumCullModifier, updateFrustumUniforms, setSortClipR };
 }
