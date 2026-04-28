@@ -12,34 +12,10 @@
     canvas {
       touch-action: none;
     }
-    #ar-btn {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 100;
-      padding: 12px 22px;
-      background: rgba(0, 0, 0, 0.55);
-      color: #fff;
-      border: 2px solid rgba(255, 255, 255, 0.8);
-      border-radius: 10px;
-      font-family: sans-serif;
-      font-size: 17px;
-      font-weight: bold;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    #ar-btn.active {
-      background: rgba(255, 100, 0, 0.75);
-      border-color: orange;
-    }
   </style>
 </head>
 
 <body>
-  <button id="ar-btn">AR</button>
   <script type="importmap">
     {
       "imports": {
@@ -117,40 +93,38 @@
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });
     const touchCtrl = createTouchController({ camera, localFrame });
 
-    // ─── AR button (mobile only) ────────────────────────────────────────────────
-    const isMobile = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
-    const arBtn    = document.getElementById("ar-btn");
-    let   arMode   = false;
+    // ─── AR mode — toggled via postMessage from parent (examples.html) ──────────
+    let arMode = false;
 
-    if (isMobile) {
-      arBtn.style.display = "block";
-      arBtn.addEventListener("click", async () => {
-        if (!arMode) {
-          try {
-            // iOS 13+ requires explicit permission for sensor access
-            if (typeof DeviceOrientationEvent.requestPermission === "function") {
-              const r = await DeviceOrientationEvent.requestPermission();
-              if (r !== "granted") return;
+    window.addEventListener("message", async (e) => {
+      if (e.data?.type !== "spark:ar-toggle") return;
+      if (!arMode) {
+        try {
+          if (typeof DeviceOrientationEvent.requestPermission === "function") {
+            const r = await DeviceOrientationEvent.requestPermission();
+            if (r !== "granted") {
+              window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
+              return;
             }
-            if (typeof DeviceMotionEvent.requestPermission === "function") {
-              const r = await DeviceMotionEvent.requestPermission();
-              if (r !== "granted") return;
-            }
-            touchCtrl.setArMode(true);
-            arBtn.textContent = "AR ●";
-            arBtn.classList.add("active");
-            arMode = true;
-          } catch (err) {
-            console.error("AR sensor permission denied:", err);
           }
-        } else {
-          touchCtrl.setArMode(false);
-          arBtn.textContent = "AR";
-          arBtn.classList.remove("active");
-          arMode = false;
+          if (typeof DeviceMotionEvent.requestPermission === "function") {
+            const r = await DeviceMotionEvent.requestPermission();
+            if (r !== "granted") {
+              window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
+              return;
+            }
+          }
+          touchCtrl.setArMode(true);
+          arMode = true;
+        } catch (err) {
+          console.error("AR sensor permission denied:", err);
         }
-      });
-    }
+      } else {
+        touchCtrl.setArMode(false);
+        arMode = false;
+      }
+      window.parent.postMessage({ type: "spark:ar-state", active: arMode }, "*");
+    });
 
     const { update: updateHud } = createHud(camera);
 

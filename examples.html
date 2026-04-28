@@ -146,6 +146,30 @@
         .mobile-header {
           display: none;
         }
+        
+        #ar-btn {
+          display: none;
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 100;
+          padding: 12px 22px;
+          background: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          border: 2px solid rgba(255, 255, 255, 0.8);
+          border-radius: 10px;
+          font-family: sans-serif;
+          font-size: 17px;
+          font-weight: bold;
+          cursor: pointer;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+          transition: background 0.2s, border-color 0.2s;
+        }
+        #ar-btn.active {
+          background: rgba(255, 100, 0, 0.75);
+          border-color: orange;
+        }
 
         @media screen and (max-width: 768px) {
           .panel {
@@ -290,8 +314,17 @@
           const iframe = document.querySelector('.example-frame');
           const codeButton = document.querySelector('.code-button');
           const fullPageButton = document.querySelector('.fullpage-button');
+          const arButton = document.querySelector('.ar-btn');
 
           iframe.src = path;
+
+          // Reset AR button state when switching examples
+          if (arButton) {
+            const isMobile = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+            arButton.style.display = (isMobile && exampleKey === 'teleport') ? "" : "none";
+            arButton.innerHTML = "AR";
+            arButton.classList.remove("active");
+          }
 
           if (codeButton) {
             codeButton.href = `https://github.com/sparkjsdev/spark/blob/main${path}`;
@@ -319,6 +352,10 @@
 
           const actionButtons = document.createElement('div');
           actionButtons.classList.add('action-buttons');
+          
+          const arButton = document.createElement('button');
+          arButton.classList.add('action-button', 'ar-btn');
+          arButton.innerHTML = `AR`;
 
           const fullPageButton = document.createElement('a');
           fullPageButton.classList.add('action-button', 'fullpage-button');
@@ -340,9 +377,32 @@
             </svg>
           `;
 
+          actionButtons.appendChild(arButton);
           actionButtons.appendChild(fullPageButton);
           actionButtons.appendChild(codeButton);
           document.body.appendChild(actionButtons);
+
+          // AR button: only visible on mobile, only for the teleport example
+          const isMobile = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+          arButton.style.display = "none";
+
+          // Toggle AR mode via postMessage to the iframe
+          arButton.addEventListener("click", () => {
+            const iframe = document.querySelector(".example-frame");
+            iframe?.contentWindow?.postMessage({ type: "spark:ar-toggle" }, "*");
+          });
+
+          // Receive AR state back from iframe and update button appearance
+          window.addEventListener("message", (e) => {
+            if (e.data?.type !== "spark:ar-state") return;
+            if (e.data.active) {
+              arButton.innerHTML = "AR ●";
+              arButton.classList.add("active");
+            } else {
+              arButton.innerHTML = "AR";
+              arButton.classList.remove("active");
+            }
+          });
 
           const initialExample = getExampleFromHash();
           setActiveExample(initialExample);
