@@ -14,9 +14,9 @@ const DOUBLE_TAP_BOOST = 0.4;   // initial per-frame displacement toward tapped 
 const TAP_DAMPING      = 0.78;  // tap velocity decay per frame
 
 // AR sensor constants
-const AR_MOTION_SCALE  = 0.5;   // acceleration (m/s²) → scene-velocity contribution per second
+const AR_MOTION_SCALE  = 10.0;  // acceleration (m/s²) → scene-velocity contribution per second
 const AR_MOTION_DECAY  = 4.0;   // velocity decay rate (higher = shorter glide after move)
-const AR_MOTION_DEAD   = 0.5;   // dead zone in m/s² to suppress sensor noise
+const AR_MOTION_DEAD   = 0.3;   // dead zone in m/s² to suppress sensor noise
 
 /**
  * Touch controller:
