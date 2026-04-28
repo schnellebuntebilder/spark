@@ -4,19 +4,17 @@ const PAN_SPEED        = 0.003;
 const ROTATE_SPEED     = 0.003;
 const ROT_FRICTION     = 6.0;   // right-click momentum decay rate (higher = snappier stop)
 const MAX_ROT_VEL      = 3.0;   // rad/s cap for rotation momentum
-const DOLLY_SPEED      = 0.005;
 const WHEEL_SPEED      = 0.001;
 const WHEEL_FRICTION   = 5.0;   // wheel position momentum decay rate
-const LOOK_EASE        = 4.0;   // look-at slerp speed
-const LOOK_EASE_IN     = 3.0;   // how fast look-at ramps up on left drag (ease-in)
-const MOVE_SPEED       = 5.0;   // units per second
+const MOVE_SPEED       = 5.0;   // units per second (WASD)
+const FLY_SPEED        = 8.0;   // units per second (left-click fly-toward)
 
 /**
  * Desktop web controller:
  *   - Middle mouse + drag  → pan (translate)
  *   - Right click + drag   → rotate (yaw + pitch) with momentum after release
- *   - Left click + drag    → dolly toward / away from clicked splat; camera eases in to look at it
- *   - Mouse wheel          → dolly with position momentum + look-at ease
+ *   - Left click (hold)    → fly continuously toward the point under the cursor
+ *   - Mouse wheel          → dolly with position momentum
  *   - W/A/S/D              → fly forward / left / back / right
  *
  * @param {{ renderer, camera, localFrame, world }} opts
@@ -28,11 +26,6 @@ export function createWebController({ renderer, camera, localFrame, world }) {
   let button      = -1;
   let lastX       = 0;
   let lastY       = 0;
-  let isDragging  = false;
-
-  // Look-at state
-  let lookAtTimer    = 0;  // seconds remaining (wheel / left-drag countdown)
-  let lookAtStrength = 0;  // 0→1 ease-in ramp for left-drag
 
   // Right-click rotation momentum
   let rotVelX        = 0;
@@ -54,20 +47,20 @@ export function createWebController({ renderer, camera, localFrame, world }) {
 
   // ── helpers ──────────────────────────────────────────────────────────────────
 
-  function pickDollyTarget(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    ndcMouse.x =  ((clientX - rect.left) / rect.width)  * 2 - 1;
-    ndcMouse.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
-    raycaster.setFromCamera(ndcMouse, camera);
-    const hits = raycaster.intersectObject(world, false);
-    if (hits.length > 0) {
-      dollyTarget.copy(hits[0].point);
-    } else {
-      const camPos  = camera.getWorldPosition(new THREE.Vector3());
-      const camQuat = camera.getWorldQuaternion(new THREE.Quaternion());
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
-      const prevDist = dollyTarget.distanceTo(camPos);
-      dollyTarget.copy(camPos).addScaledVector(forward, prevDist > 0.1 ? prevDist : 5.0);
+  /**
+   * Old left-mouse behavior (kept as reference):
+   * drag up/down dollies toward / away from the clicked target point.
+   *
+   * @param {number} dy         - mouse delta Y in pixels
+   * @param {THREE.Vector3} dollyTarget - world-space target point
+   */
+  function leftMouseDolly(dy, dollyTarget) { // eslint-disable-line no-unused-vars
+    const DOLLY_SPEED = 0.005;
+    const camPos   = camera.getWorldPosition(new THREE.Vector3());
+    const toTarget = new THREE.Vector3().subVectors(dollyTarget, camPos);
+    const dist     = toTarget.length();
+    if (dist > 0.01) {
+      localFrame.position.addScaledVector(toTarget.divideScalar(dist), dy * DOLLY_SPEED * dist);
     }
   }
 
@@ -77,32 +70,25 @@ export function createWebController({ renderer, camera, localFrame, world }) {
 
   canvas.addEventListener("mousedown", (e) => {
     if (button !== -1) return;
-    button     = e.button;
-    lastX      = e.clientX;
-    lastY      = e.clientY;
-    isDragging  = false;
-    lookAtTimer    = 0;
-    lookAtStrength = 0;
+    button = e.button;
+    lastX  = e.clientX;
+    lastY  = e.clientY;
 
     if (e.button === 2) {
       rotVelX = 0;
       rotVelY = 0;
       lastRotMoveTime = performance.now();
     }
-    if (e.button === 0) {
-      pickDollyTarget(e.clientX, e.clientY);
-    }
     e.preventDefault();
   });
 
   canvas.addEventListener("mousemove", (e) => {
-    // Always keep NDC current for wheel raycasting
+    // Always keep NDC current for wheel raycasting and fly-toward
     const rect = canvas.getBoundingClientRect();
     ndcMouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
     ndcMouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
 
     if (button < 0) return;
-    isDragging = true;
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
     lastX = e.clientX;
@@ -124,23 +110,12 @@ export function createWebController({ renderer, camera, localFrame, world }) {
 
       const rdx = -dx * ROTATE_SPEED;
       const rdy = -dy * ROTATE_SPEED;
-      // Smoothed velocity (rad/s), capped to avoid wild spins
       rotVelY = Math.max(-MAX_ROT_VEL, Math.min(MAX_ROT_VEL, 0.5 * rotVelY + 0.5 * (rdx / dt2)));
       rotVelX = Math.max(-MAX_ROT_VEL, Math.min(MAX_ROT_VEL, 0.5 * rotVelX + 0.5 * (rdy / dt2)));
 
       const yaw   = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rdx);
       const pitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), rdy);
       localFrame.quaternion.premultiply(yaw).multiply(pitch);
-
-    } else if (button === 0) {
-      // Dolly toward / away from target
-      const camPos   = camera.getWorldPosition(new THREE.Vector3());
-      const toTarget = new THREE.Vector3().subVectors(dollyTarget, camPos);
-      const dist     = toTarget.length();
-      if (dist > 0.01) {
-        localFrame.position.addScaledVector(toTarget.divideScalar(dist), dy * DOLLY_SPEED * dist);
-        lookAtTimer = 0.4;
-      }
     }
   });
 
@@ -150,15 +125,14 @@ export function createWebController({ renderer, camera, localFrame, world }) {
 
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
-    // Raycast using current NDC (maintained by mousemove)
     raycaster.setFromCamera(ndcMouse, camera);
     const hits = raycaster.intersectObject(world, false);
     if (hits.length > 0) {
       dollyTarget.copy(hits[0].point);
     } else {
-      const camPos  = camera.getWorldPosition(new THREE.Vector3());
-      const camQuat = camera.getWorldQuaternion(new THREE.Quaternion());
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
+      const camPos   = camera.getWorldPosition(new THREE.Vector3());
+      const camQuat  = camera.getWorldQuaternion(new THREE.Quaternion());
+      const forward  = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
       const prevDist = dollyTarget.distanceTo(camPos);
       dollyTarget.copy(camPos).addScaledVector(forward, prevDist > 0.1 ? prevDist : 5.0);
     }
@@ -167,12 +141,9 @@ export function createWebController({ renderer, camera, localFrame, world }) {
     const toTarget = new THREE.Vector3().subVectors(dollyTarget, camPos);
     const dist     = toTarget.length();
     if (dist > 0.01) {
-      // Convert desired travel to initial velocity: v = travel * friction
-      // so that total_distance = v / friction = travel (exponential decay integral)
       const travel = e.deltaY * WHEEL_SPEED * dist;
       wheelMom.addScaledVector(toTarget.divideScalar(dist), travel * WHEEL_FRICTION);
     }
-    lookAtTimer = 0.4;
   }, { passive: false });
 
   // ── per-frame update ──────────────────────────────────────────────────────────
@@ -182,6 +153,20 @@ export function createWebController({ renderer, camera, localFrame, world }) {
       const now   = performance.now();
       const delta = (now - lastTime) / 1000;
       lastTime    = now;
+
+      // Left-click held: fly continuously toward the point under the cursor
+      if (button === 0) {
+        raycaster.setFromCamera(ndcMouse, camera);
+        const hits = raycaster.intersectObject(world, false);
+        let flyDir;
+        if (hits.length > 0) {
+          const camPos = camera.getWorldPosition(new THREE.Vector3());
+          flyDir = new THREE.Vector3().subVectors(hits[0].point, camPos).normalize();
+        } else {
+          flyDir = raycaster.ray.direction.clone();
+        }
+        localFrame.position.addScaledVector(flyDir, FLY_SPEED * delta);
+      }
 
       // Right-click rotation momentum (active after button release)
       if (button !== 2 && (Math.abs(rotVelX) > 0.0001 || Math.abs(rotVelY) > 0.0001)) {
@@ -197,32 +182,6 @@ export function createWebController({ renderer, camera, localFrame, world }) {
       if (wheelMom.lengthSq() > 0.00001) {
         localFrame.position.addScaledVector(wheelMom, delta);
         wheelMom.multiplyScalar(Math.exp(-WHEEL_FRICTION * delta));
-      }
-
-      // Look-at easing
-      const leftDragging = button === 0 && isDragging;
-      const lookActive   = leftDragging || lookAtTimer > 0;
-
-      if (lookActive) {
-        if (lookAtTimer > 0) lookAtTimer = Math.max(0, lookAtTimer - delta);
-
-        // Ease-in ramp for left-drag; instant full strength for wheel
-        if (leftDragging) {
-          lookAtStrength = Math.min(1, lookAtStrength + delta * LOOK_EASE_IN);
-        } else {
-          lookAtStrength = 1;
-        }
-
-        const camPos   = camera.getWorldPosition(new THREE.Vector3());
-        const toTarget = new THREE.Vector3().subVectors(dollyTarget, camPos);
-        if (toTarget.length() > 0.01) {
-          const lookQuat = new THREE.Quaternion().setFromRotationMatrix(
-            new THREE.Matrix4().lookAt(camPos, dollyTarget, new THREE.Vector3(0, 1, 0)),
-          );
-          localFrame.quaternion.slerp(lookQuat, lookAtStrength * (1 - Math.exp(-LOOK_EASE * delta)));
-        }
-      } else {
-        lookAtStrength = 0;
       }
 
       // WASD movement
