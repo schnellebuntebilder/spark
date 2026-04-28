@@ -41,8 +41,9 @@
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({ alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
     window.addEventListener("resize", () => {
@@ -93,37 +94,43 @@
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });
     const touchCtrl = createTouchController({ camera, localFrame });
 
-    // ─── AR mode — toggled via postMessage from parent (examples.html) ──────────
+    // ─── AR mode — WebXR immersive-ar session, toggled via postMessage ───────────
     let arMode = false;
 
     window.addEventListener("message", async (e) => {
       if (e.data?.type !== "spark:ar-toggle") return;
-      if (!arMode) {
-        try {
-          if (typeof DeviceOrientationEvent.requestPermission === "function") {
-            const r = await DeviceOrientationEvent.requestPermission();
-            if (r !== "granted") {
-              window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
-              return;
-            }
-          }
-          if (typeof DeviceMotionEvent.requestPermission === "function") {
-            const r = await DeviceMotionEvent.requestPermission();
-            if (r !== "granted") {
-              window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
-              return;
-            }
-          }
-          touchCtrl.setArMode(true);
-          arMode = true;
-        } catch (err) {
-          console.error("AR sensor permission denied:", err);
-        }
-      } else {
-        touchCtrl.setArMode(false);
-        arMode = false;
+
+      // If a session is already running, end it (the 'end' event posts the state update)
+      const existingSession = renderer.xr.getSession();
+      if (existingSession) {
+        existingSession.end();
+        return;
       }
-      window.parent.postMessage({ type: "spark:ar-state", active: arMode }, "*");
+
+      try {
+        if (!navigator.xr) throw new Error("WebXR not available");
+        const supported = await navigator.xr.isSessionSupported("immersive-ar");
+        if (!supported) throw new Error("immersive-ar not supported on this device");
+
+        const session = await navigator.xr.requestSession("immersive-ar", {
+          requiredFeatures: ["local-floor"],
+        });
+
+        // Reset localFrame rotation so the XR-tracked pose applies in world space
+        localFrame.quaternion.identity();
+
+        session.addEventListener("end", () => {
+          arMode = false;
+          window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
+        });
+
+        await renderer.xr.setSession(session);
+        arMode = true;
+        window.parent.postMessage({ type: "spark:ar-state", active: true }, "*");
+      } catch (err) {
+        console.error("AR session failed:", err);
+        window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
+      }
     });
 
     const { update: updateHud } = createHud(camera);
