@@ -86,8 +86,8 @@ export function createTouchController({ camera, localFrame }) {
       dragLastX = e.touches[0].clientX;
       dragLastY = e.touches[0].clientY;
 
-      const rdx = -dx * ROTATE_SPEED;
-      const rdy = -dy * ROTATE_SPEED;
+      const rdx = dx * ROTATE_SPEED;
+      const rdy = dy * ROTATE_SPEED;
 
       // EWMA velocity for momentum after lift
       rotVelY = Math.max(-MAX_ROT_VEL, Math.min(MAX_ROT_VEL, 0.5 * rotVelY + 0.5 * (rdx / dt)));
