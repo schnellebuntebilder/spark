@@ -23,8 +23,8 @@ export function createQuestController({ renderer, scene, camera, localFrame, wor
 
   function buildHeightGrid() {
     const grid = new Map();
-    world.forEachSplat((_i, center) => {
-      const w = getWorld();
+    const w = getWorld();
+    w.forEachSplat((_i, center) => {
       const wx = center.x + w.position.x;
       const wy = center.y + w.position.y;
       const wz = center.z + w.position.z;
