@@ -15,11 +15,15 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --legacy-peer-deps
 
-# Copy source
-COPY . .
-
-# Download 3D Gaussian Splat example assets (~38 files from sparkjs.dev)
+# Download assets BEFORE copying all source so this layer is only
+# invalidated when assets.json or the download script itself changes —
+# not on every source file edit. The script skips already-present files.
+COPY examples/assets.json ./examples/
+COPY scripts/download-assets.js ./scripts/
 RUN node scripts/download-assets.js
+
+# Copy the rest of the source (invalidated on every code change, but fast)
+COPY . .
 
 # Build the mkdocs site
 RUN node scripts/copy-site-files.js && \
