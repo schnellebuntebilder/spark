@@ -15,6 +15,12 @@
 
 ---
 
+## Prompt Conventions
+
+- If a user prompt **starts with `TEST`**: only implement the changes — **do NOT commit** and **do NOT build** (no `docker compose build`, no `npm run build`).
+
+---
+
 ## Workflow: Docker → Check → Commit
 
 Before every commit:
