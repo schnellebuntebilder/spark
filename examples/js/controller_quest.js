@@ -12,9 +12,11 @@ const FADE_DURATION = 0.25;
 /**
  * Quest / WebXR controller: teleport arc, fade system, gamepad input.
  * @param {{ renderer, scene, camera, localFrame, world }} opts
- * @returns {{ update(delta: number): { bPressed: boolean, fovPlus: boolean, fovMinus: boolean } }}
+ *   `world` may be a SplatMesh directly or a `() => SplatMesh` getter (for dynamic world switching).
+ * @returns {{ update(delta: number): { bPressed: boolean, fovPlus: boolean, fovMinus: boolean }, resetHeightGrid(): void }}
  */
-export function createQuestController({ renderer, scene, camera, localFrame, world }) {
+export function createQuestController({ renderer, scene, camera, localFrame, world: worldArg }) {
+  const getWorld = typeof worldArg === "function" ? worldArg : () => worldArg;
 
   // ─── Height Map ─────────────────────────────────────────────────────────────
   let heightGrid = null;
@@ -22,9 +24,10 @@ export function createQuestController({ renderer, scene, camera, localFrame, wor
   function buildHeightGrid() {
     const grid = new Map();
     world.forEachSplat((_i, center) => {
-      const wx = center.x + world.position.x;
-      const wy = center.y + world.position.y;
-      const wz = center.z + world.position.z;
+      const w = getWorld();
+      const wx = center.x + w.position.x;
+      const wy = center.y + w.position.y;
+      const wz = center.z + w.position.z;
       const cx = Math.floor(wx / HM_CELL);
       const cz = Math.floor(wz / HM_CELL);
       const key = `${cx},${cz}`;
@@ -176,7 +179,7 @@ export function createQuestController({ renderer, scene, camera, localFrame, wor
       // Fade
       if (fadeState === "fading-out") {
         fadeProgress = Math.min(1, fadeProgress + delta / FADE_DURATION);
-        world.opacity = 1 - fadeProgress;
+        getWorld().opacity = 1 - fadeProgress;
         if (fadeProgress >= 1) {
           if (fadePendingTarget) performTeleport(fadePendingTarget);
           fadePendingTarget = null;
@@ -185,9 +188,9 @@ export function createQuestController({ renderer, scene, camera, localFrame, wor
         }
       } else if (fadeState === "fading-in") {
         fadeProgress = Math.min(1, fadeProgress + delta / FADE_DURATION);
-        world.opacity = fadeProgress;
+        getWorld().opacity = fadeProgress;
         if (fadeProgress >= 1) {
-          world.opacity = 1;
+          getWorld().opacity = 1;
           fadeState = "idle";
         }
       }
@@ -235,6 +238,10 @@ export function createQuestController({ renderer, scene, camera, localFrame, wor
       triggerWasPressed = triggerPressed;
 
       return { bPressed, fovPlus, fovMinus };
+    },
+    // Call this whenever the active world is replaced so the height grid is rebuilt.
+    resetHeightGrid() {
+      heightGrid = null;
     },
   };
 }

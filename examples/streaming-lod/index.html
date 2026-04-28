@@ -44,7 +44,8 @@
   <canvas id="canvas" tabindex="0" style="outline: none;"></canvas>
   <script type="module">
     import * as THREE from "three";
-    import { SparkRenderer, SplatMesh, SparkControls, SparkXr, isMobile } from "@sparkjsdev/spark";
+    import { SparkRenderer, SplatMesh, SparkControls, isMobile } from "@sparkjsdev/spark";
+    import { createQuestController } from "../js/controller_quest.js";
     import GUI from "lil-gui";
 
     const stats = new Stats();
@@ -93,8 +94,15 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#000000");
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+
+    // localFrame is the moveable "floor" reference; teleporting shifts this group.
+    // The camera lives inside it so XR head-tracking applies on top of our position.
+    const localFrame = new THREE.Group();
+    scene.add(localFrame);
+    localFrame.add(camera);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas") });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
     function onWindowResize() {
@@ -118,6 +126,7 @@
       worldKey: initialWorld,
     };
     let world = null;
+    let questCtrl = null;
 
     function selectWorld(worldKey) {
       if (world) {
@@ -142,6 +151,9 @@
       onWindowResize();
       console.log("Render size", renderer.domElement.width, renderer.domElement.height);
       renderer.domElement.focus();
+
+      // Rebuild terrain height grid for the new world
+      questCtrl?.resetHeightGrid();
     }
 
     selectWorld(settings.worldKey);
@@ -152,21 +164,23 @@
 
     const controls = new SparkControls({ canvas: renderer.domElement });
 
-    new SparkXr({
+    // Quest / WebXR controller: teleport arc + fade + gamepad navigation.
+    // Uses a getter so it always references the currently active world.
+    questCtrl = createQuestController({
       renderer,
-      onMouseLeaveOpacity: 0.5,
-      onReady: (supported) => console.log(`SparkXr: VR ${supported ? "supported" : "not supported"}`),
-      controllers: {
-        getMove:   () => new THREE.Vector3(),
-        getRotate: () => new THREE.Vector3(),
-        getFast:   () => false,
-        getSlow:   () => false,
-      },
+      scene,
+      camera,
+      localFrame,
+      world: () => world,
     });
 
-    renderer.setAnimationLoop(function animate(time) {
+    const clock = new THREE.Clock();
+
+    renderer.setAnimationLoop(function animate() {
       stats.begin();
-      controls.update(camera);
+      const delta = clock.getDelta();
+      controls.update(localFrame);
+      questCtrl.update(delta);
       renderer.render(scene, camera);
       stats.end();
     });
