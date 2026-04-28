@@ -46,6 +46,7 @@
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh, SparkControls, isMobile } from "@sparkjsdev/spark";
     import { createQuestController } from "../js/controller_quest.js";
+    import { createHud } from "../js/hud.js";
     import GUI from "lil-gui";
 
     const stats = new Stats();
@@ -165,13 +166,36 @@
       world: () => world,
     });
 
+    const hud = createHud(camera, { getExtra: () => `LoD  ${spark.lodSplatScale.toFixed(2)}` });
+
     const clock = new THREE.Clock();
+    let lodCooldown = 0;
 
     renderer.setAnimationLoop(function animate() {
       stats.begin();
       const delta = clock.getDelta();
       controls.update(localFrame);
-      questCtrl.update(delta);
+      const { bPressed } = questCtrl.update(delta);
+
+      // Left controller: index trigger (buttons[0]) → lod down, grip (buttons[1]) → lod up
+      lodCooldown = Math.max(0, lodCooldown - delta);
+      if (lodCooldown <= 0) {
+        for (const source of renderer.xr.getSession()?.inputSources ?? []) {
+          if (source.handedness === "left" && source.gamepad) {
+            const indexVal = source.gamepad.buttons[0]?.value ?? 0;
+            const thumbVal = source.gamepad.buttons[1]?.value ?? 0;
+            if (indexVal > 0.5) {
+              spark.lodSplatScale = Math.max(0.01, spark.lodSplatScale - 0.01);
+              lodCooldown = 0.05;
+            } else if (thumbVal > 0.5) {
+              spark.lodSplatScale = Math.min(2.5, spark.lodSplatScale + 0.01);
+              lodCooldown = 0.05;
+            }
+          }
+        }
+      }
+
+      hud.update(delta, { bPressed });
       renderer.render(scene, camera);
       stats.end();
     });

@@ -5,12 +5,15 @@ import * as THREE from "three";
  * Toggle visibility with the B button; adjust FOV with left controller triggers.
  *
  * @param {THREE.Camera} camera
+ * @param {{ getExtra?: () => string }} [opts]
+ *   `getExtra` — optional callback returning a string rendered below the FPS line.
+ *   When provided, replaces the default "FOV xx°" line.
  * @returns {{
  *   hudMesh: THREE.Mesh,
  *   update: (delta: number, buttons?: { fovPlus?: boolean, fovMinus?: boolean, bPressed?: boolean }) => void
  * }}
  */
-export function createHud(camera) {
+export function createHud(camera, { getExtra } = {}) {
   const hudCanvas = document.createElement("canvas");
   hudCanvas.width = 256;
   hudCanvas.height = 128;
@@ -42,10 +45,11 @@ export function createHud(camera) {
     hudCtx.textAlign = "center";
     hudCtx.fillText(`${fpsValue} FPS`, w / 2, 72);
 
-    // FOV (smaller, grey)
+    // Second line: custom extra text or default FOV
     hudCtx.fillStyle = "#cccccc";
     hudCtx.font = "26px sans-serif";
-    hudCtx.fillText(`FOV  ${Math.round(camera.fov)}°`, w / 2, 112);
+    const extraLine = getExtra ? getExtra() : `FOV  ${Math.round(camera.fov)}°`;
+    hudCtx.fillText(extraLine, w / 2, 112);
 
     hudTex.needsUpdate = true;
   }
