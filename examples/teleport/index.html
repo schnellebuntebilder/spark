@@ -12,10 +12,43 @@
     canvas {
       touch-action: none;
     }
+    #ar-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-family: sans-serif;
+      cursor: pointer;
+      z-index: 100;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #ar-overlay .icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+    }
+    #ar-overlay .label {
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+    #ar-overlay .sub {
+      margin-top: 8px;
+      font-size: 13px;
+      opacity: 0.6;
+    }
   </style>
 </head>
 
 <body>
+  <div id="ar-overlay">
+    <div class="icon">📷</div>
+    <div class="label">Tap to Start AR</div>
+    <div class="sub">WebXR · 8th Wall</div>
+  </div>
   <script type="importmap">
     {
       "imports": {
@@ -97,6 +130,7 @@
 
     // ─── AR mode — WebXR (Android) or 8th Wall SLAM (iPhone) ────────────────────
     let arMode = false;
+    const arOverlay = document.getElementById("ar-overlay");
 
     const { update: updateHud } = createHud(camera);
     const clock = new THREE.Clock();
@@ -135,28 +169,22 @@
         stats.end();
       },
       onStart: () => {
-        // Reset localFrame so SLAM pose maps cleanly to world space
         localFrame.position.set(0, 0, 0);
         localFrame.quaternion.identity();
         arMode = true;
+        arOverlay.style.display = "none";
         window.parent.postMessage({ type: "spark:ar-state", active: true }, "*");
       },
       onStop: () => {
         renderer.setAnimationLoop(animate);
         arMode = false;
+        arOverlay.style.display = "";
         window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
       },
       xrJsPath: "../assets/8thwall/xr.js",
     });
 
-    window.addEventListener("message", async (e) => {
-      if (e.data?.type !== "spark:ar-toggle") return;
-
-      // Stop whichever AR session is active
-      if (xr8.isActive()) { xr8.stop(); return; }
-      const existingSession = renderer.xr.getSession();
-      if (existingSession) { existingSession.end(); return; }
-
+    async function startAr() {
       // 1) Try WebXR immersive-ar (Android / desktop)
       try {
         if (!navigator.xr) throw new Error("WebXR not available");
@@ -169,10 +197,12 @@
         localFrame.quaternion.identity();
         session.addEventListener("end", () => {
           arMode = false;
+          arOverlay.style.display = "";
           window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
         });
         await renderer.xr.setSession(session);
         arMode = true;
+        arOverlay.style.display = "none";
         window.parent.postMessage({ type: "spark:ar-state", active: true }, "*");
         return;
       } catch (webXrErr) {
@@ -186,6 +216,21 @@
         console.error("8th Wall AR failed:", xr8Err);
         window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
       }
+    }
+
+    function stopAr() {
+      if (xr8.isActive()) { xr8.stop(); return; }
+      const existingSession = renderer.xr.getSession();
+      if (existingSession) existingSession.end();
+    }
+
+    // Overlay tap → start AR (user gesture needed for camera permission)
+    arOverlay.addEventListener("click", startAr);
+
+    // postMessage API for parent-frame integration (index.html AR button)
+    window.addEventListener("message", async (e) => {
+      if (e.data?.type !== "spark:ar-toggle") return;
+      arMode ? stopAr() : startAr();
     });
   </script>
 </body>
