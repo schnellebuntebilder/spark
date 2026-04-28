@@ -44,7 +44,7 @@
   <canvas id="canvas" tabindex="0" style="outline: none;"></canvas>
   <script type="module">
     import * as THREE from "three";
-    import { SparkRenderer, SplatMesh, SparkControls, isMobile } from "@sparkjsdev/spark";
+    import { SparkRenderer, SplatMesh, SparkControls, SparkXr, isMobile } from "@sparkjsdev/spark";
     import GUI from "lil-gui";
 
     const stats = new Stats();
@@ -151,6 +151,18 @@
     gui.add(spark, "lodSplatScale", 0.01, 2.5, 0.001).name("Level of Detail").listen();
 
     const controls = new SparkControls({ canvas: renderer.domElement });
+
+    new SparkXr({
+      renderer,
+      onMouseLeaveOpacity: 0.5,
+      onReady: (supported) => console.log(`SparkXr: VR ${supported ? "supported" : "not supported"}`),
+      controllers: {
+        getMove:   () => new THREE.Vector3(),
+        getRotate: () => new THREE.Vector3(),
+        getFast:   () => false,
+        getSlow:   () => false,
+      },
+    });
 
     renderer.setAnimationLoop(function animate(time) {
       stats.begin();
