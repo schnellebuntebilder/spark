@@ -16,7 +16,7 @@ const TAP_DAMPING      = 0.78;  // tap velocity decay per frame
 // AR sensor constants
 const AR_MOTION_SCALE  = 10.0;  // acceleration (m/s²) → scene-velocity contribution per second
 const AR_MOTION_DECAY  = 4.0;   // velocity decay rate (higher = shorter glide after move)
-const AR_MOTION_DEAD   = 0.3;   // dead zone in m/s² to suppress sensor noise
+const AR_MOTION_DEAD   = 0.1;   // dead zone in m/s² to suppress sensor noise
 
 /**
  * Touch controller:
@@ -122,9 +122,9 @@ export function createTouchController({ camera, localFrame }) {
       _arRight.set(1, 0, 0).applyQuaternion(localFrame.quaternion);
       _arFwd.set(0, 0, -1).applyQuaternion(localFrame.quaternion);
       const scale = AR_MOTION_SCALE * delta;
-      _arMotionV.addScaledVector(_arRight, ax * scale);
-      _arMotionV.addScaledVector(_arUp,    ay * scale);
-      _arMotionV.addScaledVector(_arFwd,  -az * scale);
+      _arMotionV.addScaledVector(_arRight, -ax * scale);  // X: device right → scene right (inverted)
+      _arMotionV.addScaledVector(_arUp,     ay * scale);  // Y: device up    → scene up
+      _arMotionV.addScaledVector(_arFwd,    az * scale);  // Z: device back  → scene forward (inverted)
     }
 
     if (_arMotionV.lengthSq() > 1e-8) {
