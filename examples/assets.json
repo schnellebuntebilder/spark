@@ -147,6 +147,10 @@
     "url": "https://sparkjs.dev/assets/splats/woobles.spz",
     "directory": "splats"
   },
+  "sign_point_cloud_2.compressed.ply": {
+    "url": "https://sparkjs.dev/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply",
+    "directory": "splats/peru-wi"
+  },
   "distant-igloo.spz": {
     "url": "https://sparkjs.dev/assets/splats/distant-igloo.spz",
     "directory": "splats"

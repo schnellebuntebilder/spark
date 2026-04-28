@@ -86,6 +86,14 @@
         highDpi: !isMobile(),
         description: "100M splats scanned by Andrii Shramko",
       },
+      "Peru WI": {
+        url: "/examples/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply",
+        quaternion: [1, 0, 0, 0],
+        position: [0, -1, 0],
+        background: "#cafefe",
+        highDpi: !isMobile(),
+        description: "Roadside sign scanned in Peru, Wisconsin",
+      },
     };
 
     const title = document.getElementById("title");
@@ -146,7 +154,7 @@
       camera.quaternion.set(...(cameraQuaternion ?? [0, 0, 0, 1])).normalize();
       title.textContent = worldKey;
       subtitle.textContent = description;
-      spark.lodSplatScale = lodSplatScale ?? 1.0;
+      spark.lodSplatScale = lodSplatScale ?? 1.1;
       renderer.setPixelRatio(highDpi ? window.devicePixelRatio : 1);
       onWindowResize();
       console.log("Render size", renderer.domElement.width, renderer.domElement.height);
