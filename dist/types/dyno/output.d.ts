@@ -6,8 +6,8 @@ export declare const outputPackedSplat: (gsplat: DynoVal<typeof Gsplat>, rgbMinM
 export declare const outputCovSplat: (covsplat: DynoVal<typeof CovSplat>, rgbMinMaxLnScaleMinMax: DynoVal<"vec4">) => OutputCovSplat;
 export declare const outputExtendedSplat: (gsplat: DynoVal<typeof Gsplat>) => OutputExtendedSplat;
 export declare const outputExtCovSplat: (covsplat: DynoVal<typeof CovSplat>) => OutputExtCovSplat;
-export declare const outputSplatDepth: (gsplat: DynoVal<typeof Gsplat>, viewCenter: DynoVal<"vec3">, viewDir: DynoVal<"vec3">, sortRadial: DynoVal<"bool">) => OutputSplatDepth;
-export declare const outputCovSplatDepth: (covsplat: DynoVal<typeof CovSplat>, viewCenter: DynoVal<"vec3">, viewDir: DynoVal<"vec3">, sortRadial: DynoVal<"bool">) => OutputCovSplatDepth;
+export declare const outputSplatDepth: (gsplat: DynoVal<typeof Gsplat>, viewCenter: DynoVal<"vec3">, viewDir: DynoVal<"vec3">, sortRadial: DynoVal<"bool">, viewProjection?: DynoVal<"mat4">, sortClipXY?: DynoVal<"float">) => OutputSplatDepth;
+export declare const outputCovSplatDepth: (covsplat: DynoVal<typeof CovSplat>, viewCenter: DynoVal<"vec3">, viewDir: DynoVal<"vec3">, sortRadial: DynoVal<"bool">, viewProjection?: DynoVal<"mat4">, sortClipXY?: DynoVal<"float">) => OutputCovSplatDepth;
 export declare const outputRgba8: (rgba8: DynoVal<"vec4">) => OutputRgba8;
 export declare class OutputPackedSplat extends Dyno<{
     gsplat: typeof Gsplat;
@@ -46,12 +46,16 @@ declare class OutputSplatDepth extends Dyno<{
     viewCenter: "vec3";
     viewDir: "vec3";
     sortRadial: "bool";
+    viewProjection: "mat4";
+    sortClipXY: "float";
 }, Record<string, never>> {
-    constructor({ gsplat, viewCenter, viewDir, sortRadial, }: {
+    constructor({ gsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY, }: {
         gsplat: DynoVal<typeof Gsplat>;
         viewCenter: DynoVal<"vec3">;
         viewDir: DynoVal<"vec3">;
         sortRadial: DynoVal<"bool">;
+        viewProjection?: DynoVal<"mat4">;
+        sortClipXY?: DynoVal<"float">;
     });
 }
 declare class OutputCovSplatDepth extends Dyno<{
@@ -59,12 +63,16 @@ declare class OutputCovSplatDepth extends Dyno<{
     viewCenter: "vec3";
     viewDir: "vec3";
     sortRadial: "bool";
+    viewProjection: "mat4";
+    sortClipXY: "float";
 }, Record<string, never>> {
-    constructor({ covsplat, viewCenter, viewDir, sortRadial, }: {
+    constructor({ covsplat, viewCenter, viewDir, sortRadial, viewProjection, sortClipXY, }: {
         covsplat: DynoVal<typeof CovSplat>;
         viewCenter: DynoVal<"vec3">;
         viewDir: DynoVal<"vec3">;
         sortRadial: DynoVal<"bool">;
+        viewProjection?: DynoVal<"mat4">;
+        sortClipXY?: DynoVal<"float">;
     });
 }
 export declare class OutputRgba8 extends Dyno<{

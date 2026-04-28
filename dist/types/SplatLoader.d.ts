@@ -1,7 +1,7 @@
 import { FileLoader, Loader, LoadingManager } from 'three';
 import { ExtSplats } from './ExtSplats';
 import { PackedSplats } from './PackedSplats';
-import { FileInput, TranscodeSpzInput, SplatData, getFileExtension, getSplatFileType, getSplatFileTypeFromPath } from './SplatCore';
+import { FileInput, SplatData, TranscodeSpzInput, getFileExtension, getSplatFileType, getSplatFileTypeFromPath } from './SplatCore';
 import { SplatMesh } from './SplatMesh';
 import { SplatEncoding, SplatFileType } from './defines';
 import { PcSogsJson, PcSogsV2Json, isPcSogs, tryPcSogs, tryPcSogsZip } from './pcsogs';
