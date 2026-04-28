@@ -45,12 +45,13 @@
   <script type="module">
     import * as THREE from "three";
     import { SparkRenderer, SplatMesh, SparkControls, isMobile } from "@sparkjsdev/spark";
+    import { createQuestController } from "../js/controller_quest.js";
     import GUI from "lil-gui";
 
     const stats = new Stats();
     document.body.appendChild(stats.dom);
 
-    const initialWorld = "Coit Tower, SF";
+    const initialWorld = "Peru WI (LoD Streaming)";
     const worlds = {
       "Hobbiton": {
         url: "https://storage.googleapis.com/forge-dev-public/asundqui/rad/260219/tijerin_w6_hobbiton-lod.rad",
@@ -58,32 +59,23 @@
         background: "#cafefe",
         description: "24M splats created by Tijerin with World Labs Marble",
       },
-      "Cozy Spaceship": {
-        url: "https://storage.googleapis.com/forge-dev-public/asundqui/rad/260217/cozy-spaceship_2-lod.rad",
-        position: [0, -6.5, 0],
-        background: "#000000",
-        description: "6M splats created by Britt Casado with World Labs Marble",
-      },
-      "Coit Tower, SF": {
-        url: "https://storage.googleapis.com/forge-dev-public/asundqui/rad/260217/coit-40m-sh1-lod.rad",
+      "Peru WI": {
+        url: "/examples/assets/splats/peru-wi/sign_point_cloud_2.compressed.ply",
+        paged: false,
         quaternion: [1, 0, 0, 0],
-        scale: 10.0,
-        cameraPosition: [-0.858, 2.203, -1.128],
-        cameraQuaternion: [-0.043, -0.909, -0.097, 0.402],
-        background: "#cafefe",
-        lodSplatScale: 1.5,
-        highDpi: !isMobile(),
-        description: "40M splats scanned by Vincent Woo",
-      },
-      "Jastrzębia Góra, Poland": {
-        url: "https://storage.googleapis.com/forge-dev-public/asundqui/rad/260217/poland-lod.rad",
-        quaternion: [1, 0, 0, 0],
-        scale: 0.05,
-        cameraPosition: [43.7, -3.5, -1.7],
-        cameraQuaternion: [-0.230, 0.241, 0.006, 0.943],
+        position: [0, -1, 0],
         background: "#cafefe",
         highDpi: !isMobile(),
-        description: "100M splats scanned by Andrii Shramko",
+        description: "Roadside sign scanned in Peru, Wisconsin",
+      },
+      "Peru WI (LoD Streaming)": {
+        url: "/examples/assets/splats/peru-wi/peru-sign-point_cloud-lod.rad",
+        paged: true,
+        quaternion: [0, 1, 1, 0],
+        position: [0, -1, 0],
+        background: "#cafefe",
+        highDpi: !isMobile(),
+        description: "Peru WI sign – Quest 3 optimised streaming LoD (8.3M splats, csplat, SH1)",
       },
     };
 
@@ -93,8 +85,15 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#000000");
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+
+    // localFrame is the moveable "floor" reference; teleporting shifts this group.
+    // The camera lives inside it so XR head-tracking applies on top of our position.
+    const localFrame = new THREE.Group();
+    scene.add(localFrame);
+    localFrame.add(camera);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas") });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
     function onWindowResize() {
@@ -118,6 +117,7 @@
       worldKey: initialWorld,
     };
     let world = null;
+    let questCtrl = null;
 
     function selectWorld(worldKey) {
       if (world) {
@@ -125,8 +125,8 @@
         world.dispose();
       }
 
-      const { url, quaternion, position, scale, background, description, cameraPosition, cameraQuaternion, lodSplatScale, highDpi } = worlds[worldKey];
-      world = new SplatMesh({ url, paged: true });
+      const { url, quaternion, position, scale, background, description, cameraPosition, cameraQuaternion, lodSplatScale, highDpi, paged } = worlds[worldKey];
+      world = new SplatMesh({ url, paged: paged ?? true });
       world.quaternion.set(...quaternion ?? [0, 0, 0, 1]).normalize();
       world.position.set(...(position ?? [0, 0, 0]));
       world.scale.setScalar(scale ?? 1.0);
@@ -137,11 +137,14 @@
       camera.quaternion.set(...(cameraQuaternion ?? [0, 0, 0, 1])).normalize();
       title.textContent = worldKey;
       subtitle.textContent = description;
-      spark.lodSplatScale = lodSplatScale ?? 1.0;
+      spark.lodSplatScale = lodSplatScale ?? 0.34;
       renderer.setPixelRatio(highDpi ? window.devicePixelRatio : 1);
       onWindowResize();
       console.log("Render size", renderer.domElement.width, renderer.domElement.height);
       renderer.domElement.focus();
+
+      // Rebuild terrain height grid for the new world
+      questCtrl?.resetHeightGrid();
     }
 
     selectWorld(settings.worldKey);
@@ -152,9 +155,23 @@
 
     const controls = new SparkControls({ canvas: renderer.domElement });
 
-    renderer.setAnimationLoop(function animate(time) {
+    // Quest / WebXR controller: teleport arc + fade + gamepad navigation.
+    // Uses a getter so it always references the currently active world.
+    questCtrl = createQuestController({
+      renderer,
+      scene,
+      camera,
+      localFrame,
+      world: () => world,
+    });
+
+    const clock = new THREE.Clock();
+
+    renderer.setAnimationLoop(function animate() {
       stats.begin();
-      controls.update(camera);
+      const delta = clock.getDelta();
+      controls.update(localFrame);
+      questCtrl.update(delta);
       renderer.render(scene, camera);
       stats.end();
     });
