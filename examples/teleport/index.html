@@ -35,6 +35,7 @@
     import { createQuestController } from "../js/controller_quest.js";
     import { createWebController } from "../js/controller_web.js";
     import { createTouchController } from "../js/controller_touch.js";
+    import { createXr8Fallback } from "../js/ar-xr8.js";
 
     const stats = new Stats();
     document.body.appendChild(stats.dom);
@@ -94,70 +95,97 @@
     const questCtrl = createQuestController({ renderer, scene, camera, localFrame, world });
     const touchCtrl = createTouchController({ camera, localFrame });
 
-    // ─── AR mode — WebXR immersive-ar session, toggled via postMessage ───────────
+    // ─── AR mode — WebXR (Android) or 8th Wall SLAM (iPhone) ────────────────────
     let arMode = false;
+
+    const { update: updateHud } = createHud(camera);
+    const clock = new THREE.Clock();
+
+    function animate() {
+      stats.begin();
+      const delta = clock.getDelta();
+      webCtrl.update();
+      const { bPressed, fovPlus, fovMinus } = questCtrl.update(delta);
+      touchCtrl.update(delta);
+      localFrame.updateMatrixWorld(true);
+      updateFrustumUniforms(camera, world, !world.enableLod);
+      poseControls.update(localFrame);
+      updateHud(delta, { fovPlus, fovMinus, bPressed });
+      renderer.render(scene, camera);
+      debugInfo.splatCount = spark.activeSplats;
+      stats.end();
+    }
+
+    renderer.setAnimationLoop(animate);
+
+    // 8th Wall fallback: used when WebXR immersive-ar is unavailable (iPhone)
+    const xr8 = createXr8Fallback({
+      renderer,
+      camera,
+      scene,
+      onPerFrame: (delta) => {
+        stats.begin();
+        webCtrl.update();
+        touchCtrl.update(delta);
+        localFrame.updateMatrixWorld(true);
+        updateFrustumUniforms(camera, world, !world.enableLod);
+        poseControls.update(localFrame);
+        updateHud(delta, {});
+        debugInfo.splatCount = spark.activeSplats;
+        stats.end();
+      },
+      onStart: () => {
+        // Reset localFrame so SLAM pose maps cleanly to world space
+        localFrame.position.set(0, 0, 0);
+        localFrame.quaternion.identity();
+        arMode = true;
+        window.parent.postMessage({ type: "spark:ar-state", active: true }, "*");
+      },
+      onStop: () => {
+        renderer.setAnimationLoop(animate);
+        arMode = false;
+        window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
+      },
+      xrJsPath: "../assets/8thwall/xr.js",
+    });
 
     window.addEventListener("message", async (e) => {
       if (e.data?.type !== "spark:ar-toggle") return;
 
-      // If a session is already running, end it (the 'end' event posts the state update)
+      // Stop whichever AR session is active
+      if (xr8.isActive()) { xr8.stop(); return; }
       const existingSession = renderer.xr.getSession();
-      if (existingSession) {
-        existingSession.end();
-        return;
-      }
+      if (existingSession) { existingSession.end(); return; }
 
+      // 1) Try WebXR immersive-ar (Android / desktop)
       try {
         if (!navigator.xr) throw new Error("WebXR not available");
         const supported = await navigator.xr.isSessionSupported("immersive-ar");
-        if (!supported) throw new Error("immersive-ar not supported on this device");
+        if (!supported) throw new Error("immersive-ar not supported");
 
         const session = await navigator.xr.requestSession("immersive-ar", {
           requiredFeatures: ["local-floor"],
         });
-
-        // Reset localFrame rotation so the XR-tracked pose applies in world space
         localFrame.quaternion.identity();
-
         session.addEventListener("end", () => {
           arMode = false;
           window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
         });
-
         await renderer.xr.setSession(session);
         arMode = true;
         window.parent.postMessage({ type: "spark:ar-state", active: true }, "*");
-      } catch (err) {
-        console.error("AR session failed:", err);
+        return;
+      } catch (webXrErr) {
+        console.log("WebXR AR not available, trying 8th Wall fallback:", webXrErr.message);
+      }
+
+      // 2) Fall back to 8th Wall SLAM (iPhone / unsupported browsers)
+      try {
+        await xr8.start();
+      } catch (xr8Err) {
+        console.error("8th Wall AR failed:", xr8Err);
         window.parent.postMessage({ type: "spark:ar-state", active: false }, "*");
       }
-    });
-
-    const { update: updateHud } = createHud(camera);
-
-    const clock = new THREE.Clock();
-
-    renderer.setAnimationLoop(function animate() {
-      stats.begin();
-
-      const delta = clock.getDelta();
-
-      webCtrl.update();
-      const { bPressed, fovPlus, fovMinus } = questCtrl.update(delta);
-      touchCtrl.update(delta);
-
-      // Update localFrame → camera world matrix before computing frustum
-      localFrame.updateMatrixWorld(true);
-      updateFrustumUniforms(camera, world, !world.enableLod);
-
-      // Sync pose GUI ↔ localFrame (reads after controllers so display is current)
-      poseControls.update(localFrame);
-
-      updateHud(delta, { fovPlus, fovMinus, bPressed });
-
-      renderer.render(scene, camera);
-      debugInfo.splatCount = spark.activeSplats;
-      stats.end();
     });
   </script>
 </body>
