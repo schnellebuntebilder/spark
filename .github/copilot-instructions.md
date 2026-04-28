@@ -19,8 +19,9 @@
 
 Before every commit:
 
-1. **Rebuild Docker image (via Compose!):** `docker compose build --no-cache`
+1. **Rebuild Docker image (via Compose!):** `docker compose build`
    - ⚠️ Do NOT use `docker build -t spark-examples .` — that builds a separate image that Compose does NOT use
+   - ⚠️ Do NOT use `--no-cache` — the Dockerfile is structured so heavy layers (apt, npm, asset download) are cached; only `COPY . .` + mkdocs rebuild on each run (~30s). Use `--no-cache` only if you need a truly clean state.
 2. **Force-recreate container:** `docker compose up -d --force-recreate`
 3. **Verify the site** at `https://spark.schnellebunte.cloud/examples/#teleport` — check for console errors
 4. **Then commit**
